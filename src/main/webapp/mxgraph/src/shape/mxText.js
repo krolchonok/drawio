@@ -672,7 +672,79 @@ mxText.prototype.getShapeRotation = function()
  */
 mxText.prototype.getTextRotation = function()
 {
-	return (this.state != null && this.state.shape != null) ? this.state.shape.getTextRotation() : 0;
+	var rot = (this.state != null && this.state.shape != null) ? this.state.shape.getTextRotation() : 0;
+	
+	if (this.state != null && this.state.view != null)
+	{
+		var graph = this.state.view.graph;
+		
+		if (graph != null && graph.getModel().isEdge(this.state.cell) &&
+			mxUtils.getValue(this.state.style, mxConstants.STYLE_ROTATE_LABELS, 0) != 0)
+		{
+			var edgeRot = this.getEdgeTextRotation();
+			
+			if (!isNaN(edgeRot))
+			{
+				rot = edgeRot;
+			}
+		}
+	}
+	
+	return rot;
+};
+
+/**
+ * Function: getEdgeTextRotation
+ * 
+ * Returns the rotation for an edge label based on the closest segment to the
+ * label center.
+ */
+mxText.prototype.getEdgeTextRotation = function()
+{
+	var state = this.state;
+	var angle = 0;
+	
+	if (state != null && state.absolutePoints != null && state.absolutePoints.length >= 2)
+	{
+		var label = state.absoluteOffset;
+		var pts = state.absolutePoints;
+		var best = null;
+		var minDist = null;
+		
+		for (var i = 1; i < pts.length; i++)
+		{
+			var p0 = pts[i - 1];
+			var p1 = pts[i];
+			
+			if (p0 != null && p1 != null)
+			{
+				var dist = (label != null) ?
+					mxUtils.ptSegDistSq(p0.x, p0.y, p1.x, p1.y, label.x, label.y) : 0;
+				
+				if (minDist == null || dist < minDist)
+				{
+					minDist = dist;
+					best = {p0: p0, p1: p1};
+				}
+			}
+		}
+		
+		if (best != null)
+		{
+			angle = (180 * Math.atan2(best.p1.y - best.p0.y,
+				best.p1.x - best.p0.x)) / Math.PI;
+		}
+	}
+	
+	var dir = (state != null) ? mxUtils.getNumber(state.style,
+		mxConstants.STYLE_LABEL_ROTATION_DIRECTION, 1) : 1;
+	
+	if (dir == -1)
+	{
+		angle += 180;
+	}
+	
+	return angle;
 };
 
 /**

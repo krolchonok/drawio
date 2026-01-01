@@ -3537,6 +3537,65 @@ TextFormatPanel.prototype.addFont = function(container)
 	extraPanel.style.paddingTop = '2px';
 	extraPanel.style.paddingBottom = '4px';
 	
+	if (ss.edges.length > 0)
+	{
+		var rotateLabelOpt = this.createCellOption(mxResources.get('rotateTextWithLine', null, 'Rotate text with line'),
+			mxConstants.STYLE_ROTATE_LABELS, 0, null, null, null, null, null, ss.edges);
+		rotateLabelOpt.style.fontWeight = 'bold';
+		extraPanel.appendChild(rotateLabelOpt);
+
+		var labelDirPanel = document.createElement('div');
+		labelDirPanel.style.paddingTop = '6px';
+		labelDirPanel.style.display = 'flex';
+		labelDirPanel.style.alignItems = 'center';
+
+		var labelDirSpan = document.createElement('span');
+		labelDirSpan.style.fontWeight = 'bold';
+		labelDirSpan.style.flex = '1';
+		mxUtils.write(labelDirSpan, mxResources.get('labelDirection', null, 'Label direction'));
+		labelDirPanel.appendChild(labelDirSpan);
+
+		var labelDirSelect = document.createElement('select');
+		labelDirSelect.className = 'geSelect';
+		labelDirSelect.style.width = '110px';
+
+		var forwardOption = document.createElement('option');
+		forwardOption.setAttribute('value', 'forward');
+		mxUtils.write(forwardOption, mxResources.get('withArrow', null, 'With arrow'));
+		labelDirSelect.appendChild(forwardOption);
+
+		var oppositeOption = document.createElement('option');
+		oppositeOption.setAttribute('value', 'opposite');
+		mxUtils.write(oppositeOption, mxResources.get('againstArrow', null, 'Against arrow'));
+		labelDirSelect.appendChild(oppositeOption);
+
+		var currentDir = mxUtils.getNumber(ss.style, mxConstants.STYLE_LABEL_ROTATION_DIRECTION, 1);
+		labelDirSelect.value = (currentDir == -1) ? 'opposite' : 'forward';
+		labelDirPanel.appendChild(labelDirSelect);
+
+		var applyLabelDirection = mxUtils.bind(this, function(value)
+		{
+			var styleValue = (value == 'opposite') ? -1 : 1;
+
+			graph.getModel().beginUpdate();
+			try
+			{
+				graph.setCellStyles(mxConstants.STYLE_LABEL_ROTATION_DIRECTION, styleValue, ss.edges);
+			}
+			finally
+			{
+				graph.getModel().endUpdate();
+			}
+		});
+
+		mxEvent.addListener(labelDirSelect, 'change', function()
+		{
+			applyLabelDirection(labelDirSelect.value);
+		});
+
+		extraPanel.appendChild(labelDirPanel);
+	}
+	
 	var wwCells = graph.filterSelectionCells(mxUtils.bind(this, function(cell)
 	{
 		var state = graph.view.getState(cell);
