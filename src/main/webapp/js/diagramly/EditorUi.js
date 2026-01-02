@@ -9029,14 +9029,14 @@
 	/**
 	 * Generates a Mermaid image.
 	 */
-	EditorUi.prototype.createMermaidXml = function(input, config, data, w, h, prompt)
+	EditorUi.prototype.createMermaidXml = function(mermaidData, config, imageData, w, h, prompt)
 	{
 		var graph = new Graph(document.createElement('div'));
 		var cell = graph.insertVertex(null, null, null, 0, 0, w, h,
 			'shape=image;noLabel=1;verticalAlign=top;' +
-			'imageAspect=1;image=' + data + ';')
+			'imageAspect=1;image=' + imageData + ';')
 		graph.setAttributeForCell(cell, 'mermaidData', JSON.stringify(
-			{data: input, config: config}, null, 2));
+			{data: mermaidData, config: config}, null, 2));
 
 		if (prompt != null)
 		{
@@ -9052,41 +9052,89 @@
 	/**
 	 * Generates a Mermaid image.
 	 */
-	EditorUi.prototype.generateOpenAiMermaidDiagram = function(prompt, success, error)
+	EditorUi.prototype.getSvgForXml = function(xml)
+	{
+		var result = null;
+		var graph = this.createTemporaryGraph(this.editor.graph.getStylesheet());
+
+		try
+		{
+			document.body.appendChild(graph.container);
+			var codec = new mxCodec(mxUtils.parseXml(xml));
+			codec.decode(mxUtils.parseXml(xml).documentElement, graph.getModel());
+			result = graph.getSvg(null, null, null, null, null, null, null,
+				null, null, null, null, null, null, null, true, true);
+		}
+		finally
+		{
+			document.body.removeChild(graph.container);
+		}
+		
+		return result;
+	};
+
+	/**
+	 * Generates a Mermaid image.
+	 */
+	EditorUi.prototype.generateOpenAiMermaidDiagram = function(prompt, success, error, enableParser, options)
 	{
 		var maxRetries = 3;
 		var retryCount = 0;
 
-		// Removes error DOM elements
-		var cleanDom = function()
-		{
-			var elts = document.querySelectorAll('div[id*="dgeMermaidOutput-"]');
-
-			for (var i = 0; i < elts.length; i++)
-			{
-				if (elts[i].parentNode != null)
-				{
-					elts[i].parentNode.removeChild(elts[i]);
-				}
-			}
-		};
-		
 		var fn = mxUtils.bind(this, function()
 		{
-			this.createTimeout(30000, mxUtils.bind(this, function(timeout)
+			this.createTimeout(this.editor.generateTimeout, mxUtils.bind(this, function(timeout)
 			{
 				// EditorUi.logEvent({category: 'OPENAI-DIAGRAM',
 				// 	action: 'generateOpenAiMermaidDiagram',
 				// 	label: prompt});
-				var url = 'https://www.draw.io/generate/v2';
-				var req = new mxXmlRequest(url, prompt, 'POST');
+				var driveDomain = '';
+
+				if (this.drive != null && this.drive.getUser() != null)
+				{
+					var user = this.drive.getUser();
+
+					if (user.email != null && user.email.indexOf('@') > 0)
+					{
+						driveDomain = user.email.substring(user.email.indexOf('@') + 1);
+					}
+				}
+
+				var data = {
+					prompt: prompt,
+					driveDomain: driveDomain,
+					options: (options != null) ? options : {}
+				};
+				var url = 'https://www.draw.io/generate/v3';
+				EditorUi.debug('EditorUi.generateOpenAiMermaidDiagram',
+					[this], 'enableParser', enableParser,
+					'data', [data], 'url', [url]);
+				var t0 = Date.now();
+				var req = new mxXmlRequest(url, JSON.stringify(data), 'POST');
 				
 				var handleError = mxUtils.bind(this, function(e)
 				{
 					if (timeout.clear())
 					{
-						cleanDom();
+						EditorUi.debug('EditorUi.generateOpenAiMermaidDiagram',
+							[this], 'data', [data], 'error', [e],
+							'time', (Date.now() - t0) + ' ms');		
 						error(e);
+					}
+				});
+
+				var retry = mxUtils.bind(this, function(e)
+				{
+					if (retryCount++ < maxRetries)
+					{
+						if (timeout.clear())
+						{
+							fn();
+						}
+					}
+					else
+					{
+						handleError(e);
 					}
 				});
 				
@@ -9098,35 +9146,61 @@
 						{
 							this.tryAndHandle(mxUtils.bind(this, function()
 							{
-								var result = mxUtils.trim(req.getText());
+								var response = req.getText();
+
+								try
+								{
+									response = JSON.parse(response);
+									result = response.result;
+								}
+								catch (e)
+								{
+									result = response;
+									// ignore
+								}
+
+								EditorUi.debug('EditorUi.generateOpenAiMermaidDiagram',
+									[this], 'data', [data], 'response', [response],
+									'time', (Date.now() - t0) + ' ms');
 								
-								this.generateMermaidImage(result, null, mxUtils.bind(this, function(data, w, h)
+								if (enableParser)
 								{
-									this.tryAndHandle(mxUtils.bind(this, function()
+									if (result.charAt(0) == '<')
 									{
 										if (timeout.clear())
 										{
-											EditorUi.debug('EditorUi.generateOpenAiMermaidDiagram',
-												[this], 'prompt', [prompt], 'result', [result]);
-											cleanDom();
-											success(result, data, w, h);
-										}
-									}), handleError);
-								}), handleError, mxUtils.bind(this, function(e)
-								{
-									if (retryCount++ < maxRetries)
-									{
-										if (timeout.clear())
-										{
-											fn();
+											var parsed = Editor.extractGraphModelFromText(result);
+											success((parsed != null && parsed.length == 3) ? parsed[1] : result);
 										}
 									}
 									else
 									{
-										handleError(e);
+										this.parseMermaidDiagram(result, null, mxUtils.bind(this, function(xml)
+										{
+											this.tryAndHandle(mxUtils.bind(this, function()
+											{
+												if (timeout.clear())
+												{
+													success(xml);
+												}
+											}), handleError);
+										}), handleError, retry, true);
 									}
-								}));
-							}), handleError);
+								}
+								else
+								{
+									this.generateMermaidImage(result, null, mxUtils.bind(this, function(data, w, h)
+									{
+										this.tryAndHandle(mxUtils.bind(this, function()
+										{
+											if (timeout.clear())
+											{
+												success(result, data, w, h);
+											}
+										}), handleError);
+									}), handleError, retry);
+								}
+							}), handleError, true);
 						}
 						else
 						{
@@ -9135,7 +9209,11 @@
 							try
 							{
 								e = JSON.parse(req.getText());
-								e = e.error;
+
+								if (e.error != null)
+								{
+									e.message = e.error;
+								}
 							}
 							catch (e)
 							{
@@ -9169,14 +9247,28 @@
 		var tokens = value.split('```');
 		tokens = (tokens.length > 1) ? tokens : value.split('<pre>');
 		tokens = (tokens.length > 1) ? tokens : value.split('~~~');
-		tokens = (tokens.length > 1) ? tokens : value.split('%%');
 		tokens = (tokens.length > 1) ? tokens : value.split('(Begins)');
 		
 		var text = mxUtils.trim((tokens.length <= 1) ? value : tokens[1]);
 		var lines = text.split('\n');
-	
+		var startLine = 0;
+
+		while (startLine < lines.length &&
+			(lines[startLine] == 'mermaid' ||
+			lines[startLine].trim().length == 0 ||
+			lines[startLine].substring(0, 2) == '%%'))
+		{
+			startLine++;
+		}
+
+		if (startLine > 0)
+		{
+			lines = lines.slice(startLine);
+			text = mxUtils.trim(lines.join('\n'));
+		}
+
 		// Removes occasional mermaid tag or other text on first line
-		var type = (lines.length > 1) ? lines[1] : null;
+		var type = (lines.length > 1) ? lines[0] : null;
 
 		if (type != null)
 		{
@@ -9188,15 +9280,6 @@
 			}
 		}
 
-		if ((lines.length > 0 && mxUtils.trim(lines[0]) == 'mermaid') ||
-			(type != null && mxUtils.indexOf(
-				EditorUi.mermaidDiagramTypes, type) >= 0))
-		{
-			lines.shift();
-			text = mxUtils.trim(lines.join('\n'));
-			lines = text.split('\n');
-		}
-	
 		// Validates diagram type on first line
 		type = lines[0].split(' ')[0].replace(/:$/, '');
 		var dash = type.indexOf('-');
@@ -9206,17 +9289,8 @@
 			type = type.substring(0, dash);
 		}
 
-		try
-		{
-			if (type == 'mindmap' && lines.length > 2)
-			{
-				text = extractMermaidMindmap(lines);
-			}
-		}
-		catch (e)
-		{
-			// ignore
-		}
+		EditorUi.debug('EditorUi.extractMermaidDeclaration',
+			'text', [text], 'type', [type], 'lines', lines);
 		
 		// TODO Is this too restrictive?
 		if (mxUtils.indexOf(EditorUi.mermaidDiagramTypes, type) < 0)
@@ -9228,14 +9302,210 @@
 	};
 
 	/**
+	 * Returns true if the given Mermaid diagram type is supported by the parser.
+	 */
+	EditorUi.prototype.isSupportedMermaidDiagramType = function(diagramType)
+	{
+		return diagramType == 'graph' || diagramType == 'flowchart' ||
+			diagramType == 'sequencediagram' || diagramType == 'classdiagram' ||
+			diagramType == 'statediagram-v2' || diagramType == 'statediagram' ||
+			diagramType == 'erdiagram' || diagramType == 'requirementdiagram' ||
+			diagramType == 'gitgraph' || diagramType == 'mindmap' ||
+			diagramType == 'journey';
+	};
+
+	/**
+	 * Extracts the Mermaid diagram type from the given data.
+	 */
+	EditorUi.prototype.getMermaidDiagramType = function(data)
+	{
+		var lines = data.split('\n');
+		var k = 0;
+
+		while (k < lines.length && (lines[k].trim().length == 0 ||
+			lines[k].substring(0, 2) == '%%'))
+		{
+			k++;
+		}
+
+		if (lines[k].trim() == '---')
+		{
+			do
+			{
+				k++;
+			}
+			while (k < lines.length && lines[k].trim() != '---');
+			
+			k++;
+		}
+
+		var diagramType = lines[k].trim().toLowerCase();
+		var sp = diagramType.indexOf(' ');
+
+		return diagramType.substring(0, sp > 0 ?
+			sp : diagramType.length);
+	};
+
+	/**
+	 * Parses the given mermaid diagram and returns diagram XML.
+	 */
+	EditorUi.prototype.parseMermaidDiagram = function(data, config, success, error, parseErrorHandler, enableParser)
+	{
+		var returned = false;
+		
+		if (enableParser && typeof mxMermaidToDrawio !== 'undefined' &&
+			this.isSupportedMermaidDiagramType(this.getMermaidDiagramType(data)))
+		{
+			mxMermaidToDrawio.addListener(mxUtils.bind(this, function(xml)
+			{
+				if (!returned && xml != this.emptyDiagramXml)
+				{
+					returned = true;
+					success(xml);
+				}
+			}));
+		}
+
+		this.generateMermaidImage(data, config, mxUtils.bind(this, function(imageData, w, h)
+		{
+			if (!returned)
+			{
+				returned = true;
+				success(this.createMermaidXml(data, config, imageData, w, h));
+			}
+		}), error, parseErrorHandler);
+	};
+
+	/**
+	 * Loads the Mermaid library extension.
+	 */
+	EditorUi.prototype.loadMermaid = function(success, error)
+	{
+		var onerror = mxUtils.bind(this, function(e)
+		{
+			this.loadingMermaid = false;
+			error(e);
+		});
+		
+		var onsuccess = mxUtils.bind(this, function()
+		{
+			try
+			{
+				this.loadingMermaid = false;
+				success();
+			}
+			catch (e)
+			{
+				onerror(e);
+			}
+		});
+
+		if (typeof mermaid === 'undefined' && !this.loadingMermaid && !this.isOffline(true))
+		{
+			this.loadingMermaid = true;
+			
+			if (urlParams['dev'] == '1')
+			{
+				mxscript('js/mermaid/mermaid.min.js', onsuccess,
+					null, null, null, onerror);
+			}
+			else
+			{
+				mxscript(window.DRAWIO_SERVER_URL + 'js/extensions.min.js',
+					onsuccess, null, null, null, onerror);
+			}
+		}
+		else
+		{
+			window.setTimeout(onsuccess, 0);
+		}
+	};
+
+	/**
+	 * Gets the width and height for the given SVG image.
+	 */
+	EditorUi.prototype.mermaidSvgToDataUri = function(svg, success, error, parseError)
+	{
+		try
+		{
+			// Fixes common errors in SVG data
+			svg = svg.replace(/xlink:href/g, 'href').replace(/<br>/g, '<br/>');
+			var doc = mxUtils.parseXml(svg);
+			var svgs = doc.getElementsByTagName('svg');
+
+			if (svgs.length > 0 && svgs[0].getAttribute('aria-roledescription') != 'error')
+			{
+				var w = parseFloat(svgs[0].getAttribute('width'));
+				var h = parseFloat(svgs[0].getAttribute('height'));
+				
+				if (isNaN(w) || isNaN(h))
+				{
+					try
+					{
+						var viewBox = svgs[0].getAttribute('viewBox').split(/\s+/);
+						w = parseFloat(viewBox[2]);
+						h = parseFloat(viewBox[3]);
+					}
+					catch(e)
+					{
+						//Any size such that it shows up
+						w = w || 100;
+						h = h || 100;									
+					}
+				}
+				
+				success(this.convertDataUri(Editor.createSvgDataUri(svg)), w, h);
+			}
+			else
+			{
+				if (parseError != null)
+				{
+					parseError();
+				}
+				else
+				{
+					error({message: mxResources.get('invalidInput')});
+				}
+			}
+		}
+		catch (e)
+		{
+			error(e);
+		}
+	};
+
+	/**
+	 * Generates a Mermaid image.
+	 */
+	EditorUi.prototype.getMermaidConfig = function(data, config)
+	{
+		config = (config != null) ? config : mxUtils.clone(EditorUi.defaultMermaidConfig);
+		config.securityLevel = 'strict';
+		config.startOnLoad = false;
+		config.maxTextSize = 900000;
+
+		// Math labels
+		if (typeof mxMermaidToDrawio !== 'undefined' && config.flowchart && data.indexOf('$$') >= 0)
+		{
+			config.flowchart.htmlLabels = true;
+			mxMermaidToDrawio.htmlLabels = true;
+		}
+
+		if (Editor.isDarkMode())
+		{
+			config.theme = 'dark';
+		}
+		
+		return config;
+	};
+
+	/**
 	 * Generates a Mermaid image.
 	 */
 	EditorUi.prototype.generateMermaidImage = function(data, config, success, error, parseErrorHandler)
 	{
 		var onerror = mxUtils.bind(this, function(e)
 		{
-			this.loadingMermaid = false;
-
 			if (error != null)
 			{
 				error(e);
@@ -9246,139 +9516,59 @@
 			}
 		});
 		
-		var delayed = mxUtils.bind(this, function()
+		this.loadMermaid(mxUtils.bind(this, function()
 		{
 			try
 			{
-				this.loadingMermaid = false;
-				
-				config = (config != null) ? config : mxUtils.clone(EditorUi.defaultMermaidConfig);
-				config.securityLevel = 'strict';
-				config.startOnLoad = false;
-				config.maxTextSize = 900000;
+				mermaid.mermaidAPI.initialize(this.getMermaidConfig(data, config));
 
-				// Math labels
-				if (typeof mxMermaidToDrawio !== 'undefined' && config.flowchart && data.indexOf('$$') >= 0)
-				{
-					config.flowchart.htmlLabels = true;
-					mxMermaidToDrawio.htmlLabels = true;
-				}
-
-				if (Editor.isDarkMode())
-				{
-					config.theme = 'dark';
-				}
-				
-				var renderCallback = mxUtils.bind(this, function(svg)
-				{
-					try
+				mermaid.mermaidAPI.render('geMermaidOutput-' + new Date().getTime(),
+					data).then(mxUtils.bind(this, function(result)
 					{
-						// Workaround for namespace errors in SVG output for IE
-						if (mxClient.IS_IE || mxClient.IS_IE11)
+						this.mermaidSvgToDataUri(result.svg, success, error, parseErrorHandler);
+					})).catch(mxUtils.bind(this, function(e)
+					{
+						this.removeMermaidErrors();
+
+						// LATER: Move to calling code where listener is registered
+						if (typeof mxMermaidToDrawio !== 'undefined')
 						{
-							svg = svg.replace(/ xmlns:\S*="http:\/\/www.w3.org\/XML\/1998\/namespace"/g, '').
-								replace(/ (NS xml|\S*):space="preserve"/g, ' xml:space="preserve"');
+							mxMermaidToDrawio.resetListeners();
 						}
-						
-						// Fix common errors in SVG output
-						svg = svg.replace(/xlink:href/g, 'href').replace(/<br>/g, '<br/>');
 
-						var doc = mxUtils.parseXml(svg);
-						var svgs = doc.getElementsByTagName('svg');
-
-						if (svgs.length > 0 && svgs[0].getAttribute('aria-roledescription') != 'error')
+						if (parseErrorHandler != null)
 						{
-							var w = parseFloat(svgs[0].getAttribute('width'));
-							var h = parseFloat(svgs[0].getAttribute('height'));
-							
-							if (isNaN(w) || isNaN(h))
-							{
-								try
-								{
-									var viewBox = svgs[0].getAttribute('viewBox').split(/\s+/);
-									w = parseFloat(viewBox[2]);
-									h = parseFloat(viewBox[3]);
-								}
-								catch(e)
-								{
-									//Any size such that it shows up
-									w = w || 100;
-									h = h || 100;									
-								}
-							}
-							
-							success(this.convertDataUri(Editor.createSvgDataUri(svg)), w, h);
+							parseErrorHandler(e);
 						}
 						else
 						{
-							if (parseErrorHandler != null)
-							{
-								parseErrorHandler();
-							}
-							else
-							{
-								error({message: mxResources.get('invalidInput')});
-							}
+							onerror(e);
 						}
-					}
-					catch (e)
-					{
-						error(e);
-					}
-				});
-
-				mermaid.mermaidAPI.initialize(config);
-
-				mermaid.mermaidAPI.render('geMermaidOutput-' + new Date().getTime(), data).then(function(result)
-				{
-					renderCallback(result.svg);
-				}).catch(function(e)
-				{
-					if (parseErrorHandler != null)
-					{
-						parseErrorHandler(e);
-					}
-					else
-					{
-						error(e);
-					}
-				});
+					}));
 			}
 			catch (e)
 			{
-				error(e);
+				onerror(e);
 			}
-		});
-
-		if (typeof mermaid === 'undefined' && !this.loadingMermaid && !this.isOffline(true))
-		{
-			this.loadingMermaid = true;
-			
-			if (urlParams['dev'] == '1')
-			{
-				if (urlParams['mermaidToDrawioTest'] == '1')
-        		{
-					mxMermaidToDrawio.addListener(mxUtils.bind(this, function(modelXml)
-					{
-						this.importXml(modelXml, null, null, null, null, null, true);
-					}));
-				}
-				
-				mxscript('js/mermaid/mermaid.min.js', delayed,
-					null, null, null, onerror);
-			}
-			else
-			{
-				mxscript(window.DRAWIO_SERVER_URL + 'js/extensions.min.js', delayed,
-					null, null, null, onerror);
-			}
-		}
-		else
-		{
-			window.setTimeout(delayed, 0);
-		}
+		}), onerror);
 	};
 	
+	/**
+	 * Removes div in document with an ID that starts with dgeMermaidOutput
+	 */
+	EditorUi.prototype.removeMermaidErrors = function()
+	{
+		var elts = document.querySelectorAll('div[id*="dgeMermaidOutput-"]');
+
+		for (var i = 0; i < elts.length; i++)
+		{
+			if (elts[i].parentNode != null)
+			{
+				elts[i].parentNode.removeChild(elts[i]);
+			}
+		}
+	};
+
 	/**
 	 * Generates a plant UML image. Possible types are svg, png and txt.
 	 */
@@ -12858,6 +13048,12 @@
         	this.freehandWindow.destroy();
         	this.freehandWindow = null;
         }
+
+		if (this.chatWindow != null)
+		{
+			this.chatWindow.destroy();
+			this.chatWindow = null;
+		}
 
         if (this.actions.outlineWindow != null)
         {
@@ -18060,18 +18256,18 @@
 	/**
 	 *
 	 */
-	EditorUi.prototype.importCsv = function(text, done)
+	EditorUi.prototype.importCsv = function(text, done, graph)
 	{
 		this.loadOrgChartLayouts(mxUtils.bind(this, function()
 		{
-			this.doImportCsv(text, done);
+			this.doImportCsv(text, done, graph);
 		}));
 	};
 
 	/**
 	 *
 	 */
-	EditorUi.prototype.doImportCsv = function(text, done)
+	EditorUi.prototype.doImportCsv = function(text, done, graph)
 	{
 		try
 		{
@@ -18087,7 +18283,7 @@
         		var lookups = {};
         		
         		// Default values
-        		var graph = this.editor.graph;
+        		graph = (graph != null) ? graph : this.editor.graph;
         		var vars = null;
         		var style = null;
         		var styles = null;
@@ -18450,7 +18646,7 @@
 						}
 						
 						// Sets the geometry
-						var size = this.editor.graph.getPreferredSizeForCell(cell);
+						var size = graph.getPreferredSizeForCell(cell);
 						var parent = (parentIndex != null) ? graph.model.getCell(
 							namespace + values[parentIndex]) : null;
 
@@ -18563,7 +18759,7 @@
 										{
 											ref = new mxCell(refs[j], new mxGeometry(x0, y0, 0, 0), unknownStyle);
 											ref.style = graph.replacePlaceholders(dataCell, ref.style, vars);
-											var refSize = this.editor.graph.getPreferredSizeForCell(ref);
+											var refSize = graph.getPreferredSizeForCell(ref);
 											ref.geometry.width = refSize.width + padding;
 											ref.geometry.height = refSize.height + padding;
 											lookups[edge.to][refs[j]] = ref;

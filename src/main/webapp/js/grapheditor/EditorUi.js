@@ -1285,19 +1285,29 @@ EditorUi.prototype.findCommonProperties = function(cell, properties, addAll, sst
 					{
 						var name = nodes[i].getAttribute('color');
 
-						if (!mxUtils.isValidColor(name) && !handledKeys[name])
+						if (!mxUtils.isValidColor(name) && !handledKeys[name] &&
+							name != 'fill' && name != 'stroke' && name != 'font')
 						{
 							handledKeys[name] = true;
 							var label = nodes[i].getAttribute('name');
 							label = (label != null) ? label :
 								Editor.getLabelForStylename(name);
-							var defaultColor = nodes[i].getAttribute('default');
-							defaultColor = (defaultColor != null) ? defaultColor :
-								stencil.getDefaultColorValue(nodes[i], graph);
+							var defaultValue = nodes[i].getAttribute('default');
+							var defaultColor = stencil.getDefaultColorValue(
+								nodes[i], graph);
+							var undefinedValue = defaultValue;
+
+							// If the value of the default attribute is none then the
+							// style when the color is checked in the UI is 'default'
+							if (defaultValue == mxConstants.NONE)
+							{
+								defaultValue = 'default';
+							}
+
 							props.push({name: name, type: 'color', primary:
 								nodes[i].getAttribute('primary') != 'false',
-								defVal: defaultColor, defaultColor: defaultColor,
-								undefinedColor: defaultColor, dispName: label});
+								defVal: defaultValue, defaultColor: defaultColor,
+								undefinedColor: undefinedValue, dispName: label});
 						}
 					}
 					

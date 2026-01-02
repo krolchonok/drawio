@@ -545,20 +545,19 @@ mxStencil.prototype.parseColor = function(canvas, shape, node, value, graph)
 	}
 	else if (value == 'font' && shape.style != null)
 	{
-		value = mxUtils.getValue(shape.style, mxConstants.STYLE_FONTCOLOR, 'black');
+		value = mxUtils.getValue(shape.style,
+			mxConstants.STYLE_FONTCOLOR, 'black');
 	}
 	else if (shape.style != null && !mxUtils.isValidColor(value))
 	{
-		var tmp = this.getColorValue(shape, node, value, graph);
+		value = this.getColorValue(shape, node, value, graph);
 		
-		if (tmp == 'default')
+		if (value == 'default')
 		{
-			tmp = this.getDefaultColorValue(node, graph);
+			value = this.getDefaultColorValue(node, graph);
 		}
-		
-		value = tmp;
 	}
-	
+
 	return value;
 };
 
@@ -585,7 +584,8 @@ mxStencil.prototype.getStyleWithNone = function(shape, key, graph)
 /**
  * Function: getColorValue
  * 
- * Returns the value for the given color node.
+ * Returns the value for the given color node. If the value in the default
+ * attribute is 'none', then 'default' is returned and is not replaced.
  */
 mxStencil.prototype.getColorValue = function(shape, node, value, graph)
 {
@@ -598,9 +598,9 @@ mxStencil.prototype.getColorValue = function(shape, node, value, graph)
 		result = (defaultValue == null || temp != null) ?
 			temp : defaultValue;
 	}
-	else if (result == 'default' && defaultValue != null)
+	else if (result == 'default' && defaultValue != null &&
+		defaultValue != mxConstants.NONE)
 	{
-		// Resolves default keyword to default value
 		result = defaultValue;
 	}
 	

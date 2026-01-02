@@ -3711,8 +3711,11 @@ var mxUtils =
 
 		var ua = nume_a / denom;
 		var ub = nume_b / denom;
-		
-		if(ua >= 0.0 && ua <= 1.0 && ub >= 0.0 && ub <= 1.0)
+
+		// Makes more robust against rounding errors
+		var eps = 0.000001;
+
+		if (ua >= -eps && ua <= 1.0 + eps && ub >= -eps && ub <= 1.0 + eps)
 		{
 			// Get the intersection point
 			var x = x0 + ua * (x1 - x0);

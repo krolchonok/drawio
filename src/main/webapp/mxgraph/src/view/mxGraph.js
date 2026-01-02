@@ -7065,8 +7065,53 @@ mxGraph.prototype.getConnectionPoint = function(vertex, constraint, round)
 	if (vertex != null && constraint.point != null)
 	{
 		var bounds = this.view.getPerimeterBounds(vertex);
-        var cx = new mxPoint(bounds.getCenterX(), bounds.getCenterY());
 		var direction = vertex.style[mxConstants.STYLE_DIRECTION];
+        var cx = new mxPoint(bounds.getCenterX(), bounds.getCenterY());
+		var scale = this.view.scale;
+
+		// Bounds need to be rotated by 90 degrees for further computation
+		if (direction == mxConstants.DIRECTION_NORTH ||
+			direction == mxConstants.DIRECTION_SOUTH)
+		{
+			bounds.rotate90();
+		}
+		
+		point = new mxPoint(bounds.x + constraint.point.x * bounds.width + constraint.dx * scale,
+				bounds.y + constraint.point.y * bounds.height + constraint.dy * scale);
+		
+		// Horizontal and vertical shape flipping
+		if (this.getModel().isVertex(vertex.cell))
+		{
+			var flipH = vertex.style[mxConstants.STYLE_FLIPH] == 1;
+			var flipV = vertex.style[mxConstants.STYLE_FLIPV] == 1;
+			
+			// Legacy support for stencilFlipH/V
+			if (vertex.shape != null && vertex.shape.stencil != null)
+			{
+				flipH = (mxUtils.getValue(vertex.style, 'stencilFlipH', 0) == 1) || flipH;
+				flipV = (mxUtils.getValue(vertex.style, 'stencilFlipV', 0) == 1) || flipV;
+			}
+			
+			if (direction == mxConstants.DIRECTION_NORTH ||
+				direction == mxConstants.DIRECTION_SOUTH)
+			{
+				var temp = flipH;
+				flipH = flipV
+				flipV = temp;
+			}
+			
+			if (flipH)
+			{
+				point.x = 2 * bounds.getCenterX() - point.x;
+			}
+			
+			if (flipV)
+			{
+				point.y = 2 * bounds.getCenterY() - point.y;
+			}
+		}
+
+		// Shape direction
 		var r1 = 0;
 		
 		// Bounds need to be rotated by 90 degrees for further computation
@@ -7085,95 +7130,50 @@ mxGraph.prototype.getConnectionPoint = function(vertex, constraint, round)
 			{
 				r1 += 90;
 			}
-
-			// Bounds need to be rotated by 90 degrees for further computation
-			if (direction == mxConstants.DIRECTION_NORTH ||
-				direction == mxConstants.DIRECTION_SOUTH)
-			{
-				bounds.rotate90();
-			}
 		}
-
-		var scale = this.view.scale;
-		point = new mxPoint(bounds.x + constraint.point.x * bounds.width + constraint.dx * scale,
-				bounds.y + constraint.point.y * bounds.height + constraint.dy * scale);
 		
-		// Rotation for direction before projection on perimeter
-		var r2 = vertex.style[mxConstants.STYLE_ROTATION] || 0;
+		// Only 90 degrees steps possible here so no trig needed
+		if (r1 != 0)
+		{
+			var cos = 0;
+			var sin = 0;
+			
+			if (r1 == 90)
+			{
+				sin = 1;
+			}
+			else if (r1 == 180)
+			{
+				cos = -1;
+			}
+			else if (r1 == 270)
+			{
+				sin = -1;
+			}
+			
+			point = mxUtils.getRotatedPoint(point, cos, sin, cx);
+		}
 		
+		// Projection on perimeter
 		if (constraint.perimeter)
 		{
-			if (r1 != 0)
-			{
-				// Only 90 degrees steps possible here so no trig needed
-				var cos = 0;
-				var sin = 0;
-				
-				if (r1 == 90)
-				{
-					sin = 1;
-				}
-				else if (r1 == 180)
-				{
-					cos = -1;
-				}
-				else if (r1 == 270)
-				{
-					sin = -1;
-				}
-				
-		        point = mxUtils.getRotatedPoint(point, cos, sin, cx);
-			}
-	
 			point = this.view.getPerimeterPoint(vertex, point, false);
 		}
-		else
-		{
-			r2 += r1;
-			
-			if (this.getModel().isVertex(vertex.cell))
-			{
-				var flipH = vertex.style[mxConstants.STYLE_FLIPH] == 1;
-				var flipV = vertex.style[mxConstants.STYLE_FLIPV] == 1;
-				
-				// Legacy support for stencilFlipH/V
-				if (vertex.shape != null && vertex.shape.stencil != null)
-				{
-					flipH = (mxUtils.getValue(vertex.style, 'stencilFlipH', 0) == 1) || flipH;
-					flipV = (mxUtils.getValue(vertex.style, 'stencilFlipV', 0) == 1) || flipV;
-				}
-				
-				if (direction == mxConstants.DIRECTION_NORTH ||
-					direction == mxConstants.DIRECTION_SOUTH)
-				{
-					var temp = flipH;
-					flipH = flipV
-					flipV = temp;
-				}
-				
-				if (flipH)
-				{
-					point.x = 2 * bounds.getCenterX() - point.x;
-				}
-				
-				if (flipV)
-				{
-					point.y = 2 * bounds.getCenterY() - point.y;
-				}
-			}
-		}
 
-		// Generic rotation after projection on perimeter
+		// General shape rotation
+		var r2 = vertex.style[mxConstants.STYLE_ROTATION] || 0;
+		
 		if (r2 != 0 && point != null)
 		{
 	        var rad = mxUtils.toRadians(r2);
 	        var cos = Math.cos(rad);
 	        var sin = Math.sin(rad);
-	        
+			
 	        point = mxUtils.getRotatedPoint(point, cos, sin, cx);
 		}
 	}
 	
+	// Optional rounding of result
 	if (round && point != null)
 	{
 		point.x = Math.round(point.x);
