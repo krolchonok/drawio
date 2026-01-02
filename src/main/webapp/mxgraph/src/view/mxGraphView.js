@@ -115,6 +115,7 @@ mxGraphView.prototype.captureDocumentGesture = true;
  */
 mxGraphView.prototype.rendering = true;
 
+
 /**
  * Variable: graph
  *

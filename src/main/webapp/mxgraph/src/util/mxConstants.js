@@ -1280,6 +1280,24 @@
 	 * border and the label. Value is "labelPadding".
 	 */
 	STYLE_LABEL_PADDING: 'labelPadding',
+	
+	/**
+	 * Variable: STYLE_ROTATE_LABELS
+	 * 
+	 * Defines the key for enabling automatic rotation of edge labels so they
+	 * follow the connector direction. Possible values are 0 and 1. Default is
+	 * 0. Value is "rotateLabels".
+	 */
+	STYLE_ROTATE_LABELS: 'rotateLabels',
+	
+	/**
+	 * Variable: STYLE_LABEL_ROTATION_DIRECTION
+	 *
+	 * Defines whether the auto-rotated edge label should follow the arrow
+	 * direction (value 1) or face the opposite direction (value -1). Default
+	 * is 1. Value is "labelRotationDir".
+	 */
+	STYLE_LABEL_ROTATION_DIRECTION: 'labelRotationDir',
 
 	/**
 	 * Variable: STYLE_INDICATOR_SHAPE
