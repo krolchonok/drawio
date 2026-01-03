@@ -3547,17 +3547,19 @@ TextFormatPanel.prototype.addFont = function(container)
 		var labelDirPanel = document.createElement('div');
 		labelDirPanel.style.paddingTop = '6px';
 		labelDirPanel.style.display = 'flex';
-		labelDirPanel.style.alignItems = 'center';
+		labelDirPanel.style.alignItems = 'stretch';
+		labelDirPanel.style.flexDirection = 'column';
 
 		var labelDirSpan = document.createElement('span');
 		labelDirSpan.style.fontWeight = 'bold';
 		labelDirSpan.style.flex = '1';
+		labelDirSpan.style.marginBottom = '4px';
 		mxUtils.write(labelDirSpan, mxResources.get('labelDirection', null, 'Label direction'));
 		labelDirPanel.appendChild(labelDirSpan);
 
 		var labelDirSelect = document.createElement('select');
 		labelDirSelect.className = 'geSelect';
-		labelDirSelect.style.width = '110px';
+		labelDirSelect.style.width = '100%';
 
 		var forwardOption = document.createElement('option');
 		forwardOption.setAttribute('value', 'forward');
@@ -3594,6 +3596,40 @@ TextFormatPanel.prototype.addFont = function(container)
 		});
 
 		extraPanel.appendChild(labelDirPanel);
+
+		var centerLabelBtn = mxUtils.button(mxResources.get('centerLabelOnLine', null, 'Center label on line'),
+			mxUtils.bind(this, function(evt)
+			{
+				graph.getModel().beginUpdate();
+
+				try
+				{
+					for (var i = 0; i < ss.edges.length; i++)
+					{
+						var edge = ss.edges[i];
+						var geo = graph.getModel().getGeometry(edge);
+
+						if (geo != null)
+						{
+							geo = geo.clone();
+							geo.x = 0;
+							geo.y = 0;
+							geo.offset = new mxPoint(0, 0);
+							geo.relative = true;
+							graph.getModel().setGeometry(edge, geo);
+						}
+					}
+				}
+				finally
+				{
+					graph.getModel().endUpdate();
+				}
+
+				mxEvent.consume(evt);
+			}));
+		centerLabelBtn.style.marginTop = '6px';
+		centerLabelBtn.style.width = '100%';
+		extraPanel.appendChild(centerLabelBtn);
 	}
 	
 	var wwCells = graph.filterSelectionCells(mxUtils.bind(this, function(cell)

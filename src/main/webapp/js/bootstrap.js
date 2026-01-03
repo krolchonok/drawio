@@ -267,14 +267,17 @@ if (urlParams['dev'] == '1')
     // loads asynchronously) are available when the code loaded in Devel.js runs.
     mxscript(drawDevUrl + 'js/diagramly/Devel.js');
     
-    // Electron
-    if (mxIsElectron)
-    {
-        mxscript('js/desktop/DesktopLibrary.js');
-        mxscript('js/desktop/ElectronApp.js');
-    }
-    
-    mxscript(drawDevUrl + 'js/PostConfig.js');
+	// Electron
+	if (mxIsElectron)
+	{
+		mxscript('js/diagramly/DesktopLibrary.js');
+		mxscript('js/diagramly/ElectronApp.js');
+	}
+
+	mxscript(drawDevUrl + 'js/extensions.min.js');
+	mxscript(drawDevUrl + 'js/stencils.min.js');
+	mxscript(drawDevUrl + 'js/shapes-14-6-5.min.js');
+	mxscript(drawDevUrl + 'js/PostConfig.js');
 }
 else
 {
