@@ -42,7 +42,7 @@ mxStencilRegistry.allowEval = false;
 	App.mode = App.MODE_DEVICE;
 	
 	// Automatic sync on conflicts
-	Editor.desktopAutoSync = false;
+	Editor.desktopAutoSync = true;
 	
 	// Disables all external transmission functionality
 	App.prototype.isExternalDataComms = function()

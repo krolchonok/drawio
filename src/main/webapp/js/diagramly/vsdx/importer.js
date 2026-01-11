@@ -10984,7 +10984,7 @@ var com;
                             if (theme_11 != null) {
                                 var gradColor = theme_11.getFillGraientColor(this.getQuickStyleVals());
                                 if (gradColor != null)
-                                    gradient = gradColor.toHexStr();
+                                    gradient = gradColor.toHexStr? gradColor.toHexStr() : gradColor;
                             }
                         }
                         return gradient;

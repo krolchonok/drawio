@@ -2231,6 +2231,10 @@ EditorUi.prototype.getCellsForShapePicker = function(cell, hovering, showEdges)
 	{
 		cell = createVertex(graph.appendFontSize(Editor.defaultTextStyle,
 			graph.vertexFontSize), 60, 30, 'Text');
+		
+		// Adds autosize behaviour
+		cell.style = mxUtils.setStyle(mxUtils.setStyle(graph.model.getStyle(cell),
+			'autosize', '1'), 'resizable', '0');
 	}
 
 	var cells = [cell, createVertex('whiteSpace=wrap;html=1;'),

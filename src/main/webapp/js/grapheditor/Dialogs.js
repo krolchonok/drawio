@@ -3253,6 +3253,7 @@ var OutlineWindow = function(editorUi, x, y, w, h)
 var LayersWindow = function(editorUi, x, y, w, h)
 {
 	var graph = editorUi.editor.graph;
+	var model = graph.getModel();
 	
 	var div = document.createElement('div');
 	div.style.userSelect = 'none';
@@ -3289,6 +3290,7 @@ var LayersWindow = function(editorUi, x, y, w, h)
 
 	var layerCount = null;
 	var selectionLayer = null;
+	var layerDivs = new mxDictionary();
 	var ldiv = document.createElement('div');
 	ldiv.className = 'geToolbarContainer geDialogToolbar';
 	
@@ -3303,17 +3305,18 @@ var LayersWindow = function(editorUi, x, y, w, h)
 	{
 		if (graph.isEnabled())
 		{
-			graph.model.beginUpdate();
+			selectLayers(false);
+			model.beginUpdate();
 			var cell
 			
 			try
 			{
-				cell = graph.addCell(new mxCell(mxResources.get('untitledLayer')), graph.model.root);
+				cell = graph.addCell(new mxCell(mxResources.get('untitledLayer')), model.root);
 				graph.setDefaultParent(cell);
 			}
 			finally
 			{
-				graph.model.endUpdate();
+				model.endUpdate();
 			}
 
 			renameLayer(cell);
@@ -3328,517 +3331,7 @@ var LayersWindow = function(editorUi, x, y, w, h)
 	}
 	
 	ldiv.appendChild(addLink);
-
-	var insertLink = link.cloneNode();
-	insertLink.style.backgroundImage = 'url(' + Editor.layersImage + ')';
-	insertLink.setAttribute('title', mxUtils.trim(mxResources.get('moveSelectionTo', ['...'])));
-
-	mxEvent.addListener(insertLink, 'click', function(evt)
-	{
-		if (graph.isEnabled() && !graph.isSelectionEmpty())
-		{
-			var offset = mxUtils.getOffset(insertLink);
-			
-			editorUi.showPopupMenu(mxUtils.bind(this, function(menu, parent)
-			{
-				var layer = graph.getLayerForCells(graph.getSelectionCells());
-
-				for (var i = layerCount - 1; i >= 0; i--)
-				{
-					(mxUtils.bind(this, function(child)
-					{
-						var locked = mxUtils.getValue(graph.getCurrentCellStyle(child), 'locked', '0') == '1';
-
-						var item = menu.addItem(graph.convertValueToString(child) ||
-							mxResources.get('background'), null, mxUtils.bind(this, function()
-						{
-							if (!locked)
-							{
-								graph.moveCells(graph.getSelectionCells(), 0, 0, false, child);
-							}
-						}), parent, null, null, !locked);
-
-						if (locked)
-						{
-							menu.addCheckmark(item, Editor.lockedImage);
-						}
-						else if (child == layer)
-						{
-							menu.addCheckmark(item, Editor.checkmarkImage);
-						}
-					}))(graph.model.getChildAt(graph.model.root, i));
-				}
-			}), offset.x, offset.y + insertLink.offsetHeight, evt);
-		}
-	});
-
-	ldiv.appendChild(insertLink);
 	
-	var dataLink = link.cloneNode(false);
-	dataLink.style.backgroundImage = 'url(' + Editor.editImage + ')';
-	dataLink.setAttribute('title', mxResources.get('editData'));
-
-	mxEvent.addListener(dataLink, 'click', function(evt)
-	{
-		if (graph.isEnabled())
-		{
-			editorUi.showDataDialog(selectionLayer);
-		}
-		
-		mxEvent.consume(evt);
-	});
-	
-	if (!graph.isEnabled())
-	{
-		dataLink.classList.add('mxDisabled');
-	}
-
-	ldiv.appendChild(dataLink);
-	var layerDivs = new mxDictionary();
-	
-	var duplicateLink = link.cloneNode(false);
-	duplicateLink.style.backgroundImage = 'url(' + Editor.duplicateImage + ')';
-	duplicateLink.setAttribute('title', mxResources.get('duplicate'));
-
-	mxEvent.addListener(duplicateLink, 'click', function(evt)
-	{
-		if (graph.isEnabled())
-		{
-			var newCell = null;
-			graph.model.beginUpdate();
-			try
-			{
-				newCell = graph.cloneCell(selectionLayer);
-				graph.cellLabelChanged(newCell, mxResources.get('untitledLayer'));
-				newCell.setVisible(true);
-				newCell = graph.addCell(newCell, graph.model.root);
-				graph.setDefaultParent(newCell);
-			}
-			finally
-			{
-				graph.model.endUpdate();
-			}
-
-			if (newCell != null && !graph.isCellLocked(newCell))
-			{
-				graph.selectAll(newCell);
-			}
-		}
-	});
-	
-	if (!graph.isEnabled())
-	{
-		duplicateLink.classList.add('mxDisabled');
-	}
-
-	ldiv.appendChild(duplicateLink);
-
-	var removeLink = link.cloneNode(false);
-	removeLink.style.backgroundImage = 'url(' + Editor.trashImage + ')';
-	removeLink.setAttribute('title', mxResources.get('create') + '...');
-
-	mxEvent.addListener(removeLink, 'click', function(evt)
-	{
-		if (graph.isEnabled())
-		{
-			graph.model.beginUpdate();
-			try
-			{
-				var index = graph.model.root.getIndex(selectionLayer);
-				graph.removeCells([selectionLayer], false);
-				
-				// Creates default layer if no layer exists
-				if (graph.model.getChildCount(graph.model.root) == 0)
-				{
-					graph.model.add(graph.model.root, new mxCell());
-					graph.setDefaultParent(null);
-				}
-				else if (index > 0 && index <= graph.model.getChildCount(graph.model.root))
-				{
-					graph.setDefaultParent(graph.model.getChildAt(graph.model.root, index - 1));
-				}
-				else
-				{
-					graph.setDefaultParent(null);
-				}
-			}
-			finally
-			{
-				graph.model.endUpdate();
-			}
-		}
-		
-		mxEvent.consume(evt);
-	});
-	
-	if (!graph.isEnabled())
-	{
-		removeLink.classList.add('mxDisabled');
-	}
-	
-	ldiv.appendChild(removeLink);
-	div.appendChild(ldiv);
-	
-	var dot = document.createElement('span');
-	dot.setAttribute('title', mxResources.get('selectionOnly'));
-	dot.innerHTML = '&#8226;';
-	dot.style.position = 'absolute';
-	dot.style.fontWeight = 'bold';
-	dot.style.fontSize = '16pt';
-	dot.style.right = '6px';
-	
-	function updateLayerDot()
-	{
-		var div = layerDivs.get(graph.getLayerForCells(graph.getSelectionCells()));
-		
-		if (div != null)
-		{
-			div.appendChild(dot);
-		}
-		else if (dot.parentNode != null)
-		{
-			dot.parentNode.removeChild(dot);
-		}
-	};
-	
-	function refresh()
-	{
-		if (graph.isEnabled())
-		{
-			removeLink.classList.remove('mxDisabled');
-			dataLink.classList.remove('mxDisabled');
-			duplicateLink.classList.remove('mxDisabled');;
-			addLink.classList.remove('mxDisabled');
-		}
-		else
-		{
-			removeLink.classList.add('mxDisabled');
-			dataLink.classList.add('mxDisabled');
-			duplicateLink.classList.add('mxDisabled');
-			addLink.classList.add('mxDisabled');
-		}
-		
-		layerCount = graph.model.getChildCount(graph.model.root)
-		listDiv.innerText = '';
-		layerDivs.clear();
-		
-		function addLayer(index, label, child, defaultParent)
-		{
-			var ldiv = document.createElement('div');
-			ldiv.className = 'geToolbarContainer';
-			layerDivs.put(child, ldiv);
-			
-			ldiv.style.overflow = 'hidden';
-			ldiv.style.position = 'relative';
-			ldiv.style.padding = '4px';
-			ldiv.style.height = '30px';
-			ldiv.style.display = 'flex';
-			ldiv.style.alignItems = 'center';
-			ldiv.style.borderWidth = '0px 0px 1px 0px';
-			ldiv.style.borderStyle = 'solid';
-			ldiv.style.whiteSpace = 'nowrap';
-			ldiv.setAttribute('title', label  +
-			' (' + child.getId() + ')');
-			
-			var left = document.createElement('div');
-			left.style.display = 'inline-flex';
-			left.style.alignItems = 'center';
-			left.style.width = '100%';
-			left.style.textOverflow = 'ellipsis';
-			left.style.overflow = 'hidden';
-			
-			var span = document.createElement('span');
-			
-			mxEvent.addListener(ldiv, 'dragover', function(evt)
-			{
-				evt.dataTransfer.dropEffect = 'move';
-				dropIndex = index;
-				evt.stopPropagation();
-				evt.preventDefault();
-			});
-			
-			mxEvent.addListener(ldiv, 'dragstart', function(evt)
-			{
-				if (span.contentEditable != 'true')
-				{
-					dragSource = ldiv;
-					
-					// Workaround for no DnD on DIV in FF
-					if (mxClient.IS_FF)
-					{
-						// LATER: Check what triggers a parse as XML on this in FF after drop
-						evt.dataTransfer.setData('Text', '<layer/>');
-					}
-				}
-			});
-			
-			mxEvent.addListener(ldiv, 'dragend', function(evt)
-			{
-				if (dragSource != null && dropIndex != null &&
-					graph.model.getChildCount(graph.model.root) > 1)
-				{
-					graph.addCell(child, graph.model.root, dropIndex);
-				}
-
-				dragSource = null;
-				dropIndex = null;
-				evt.stopPropagation();
-				evt.preventDefault();
-			});
-
-			var inp = document.createElement('img');
-			inp.setAttribute('draggable', 'false');
-			inp.setAttribute('align', 'top');
-			inp.setAttribute('border', '0');
-			inp.className = 'geAdaptiveAsset';
-			inp.style.width = '16px';
-			inp.style.padding = '0px 6px 0 4px';
-			inp.style.cursor = 'pointer';
-			inp.setAttribute('title', mxResources.get(
-				graph.model.isVisible(child) ?
-				'hide' : 'show'));
-
-			if (graph.model.isVisible(child))
-			{
-				inp.setAttribute('src', Editor.visibleImage);
-				mxUtils.setOpacity(ldiv, 90);
-			}
-			else
-			{
-				inp.setAttribute('src', Editor.hiddenImage);
-				mxUtils.setOpacity(ldiv, 40);
-			}
-
-			if (!graph.isEnabled())
-			{
-				mxUtils.setOpacity(inp, 50);
-			}
-
-			left.appendChild(inp);
-			
-			mxEvent.addListener(inp, 'click', function(evt)
-			{
-				if (graph.isEnabled())
-				{
-					graph.model.setVisible(child, !graph.model.isVisible(child));
-				}
-
-				mxEvent.consume(evt);
-			});
-
-			var btn = document.createElement('img');
-			btn.setAttribute('draggable', 'false');
-			btn.setAttribute('align', 'top');
-			btn.setAttribute('border', '0');
-			btn.className = 'geAdaptiveAsset';
-			btn.style.width = '16px';
-			btn.style.padding = '0px 6px 0 0';
-			btn.setAttribute('title', mxResources.get('lockUnlock'));
-
-			var style = graph.getCurrentCellStyle(child);
-
-			if (mxUtils.getValue(style, 'locked', '0') == '1')
-			{
-				btn.setAttribute('src', Editor.lockedImage);
-				mxUtils.setOpacity(btn, 90);
-				ldiv.style.color = 'red';
-			}
-			else
-			{
-				btn.setAttribute('src', Editor.unlockedImage);
-				mxUtils.setOpacity(btn, 40);
-			}
-			
-			if (graph.isEnabled())
-			{
-				btn.style.cursor = 'pointer';
-			}
-			
-			mxEvent.addListener(btn, 'click', function(evt)
-			{
-				if (graph.isEnabled())
-				{
-					var value = null;
-					
-					graph.getModel().beginUpdate();
-					try
-					{
-			    		value = (mxUtils.getValue(style, 'locked', '0') == '1') ? null : '1';
-			    		graph.setCellStyles('locked', value, [child]);
-					}
-					finally
-					{
-						graph.getModel().endUpdate();
-					}
-
-					if (value == '1')
-					{
-						graph.removeSelectionCells(graph.getModel().getDescendants(child));
-					}
-					
-					mxEvent.consume(evt);
-				}
-			});
-
-			left.appendChild(btn);
-
-			mxUtils.write(span, label);
-			span.style.display = 'block';
-			span.style.whiteSpace = 'nowrap';
-			span.style.overflow = 'hidden';
-			span.style.textOverflow = 'ellipsis';
-			span.style.position = 'absolute';
-			span.style.padding = '2px';
-			span.style.left = '52px';
-			span.style.right = '8px';
-
-			left.appendChild(span);
-			ldiv.appendChild(left);
-			
-			if (graph.isEnabled())
-			{
-				// Fallback if no drag and drop is available
-				if (mxClient.IS_TOUCH || mxClient.IS_POINTER ||
-					(mxClient.IS_IE && document.documentMode < 10))
-				{
-					var right = document.createElement('div');
-					right.style.display = 'block';
-					right.style.textAlign = 'right';
-					right.style.whiteSpace = 'nowrap';
-					right.style.position = 'absolute';
-					right.style.right = '16px';
-					right.style.top = '6px';
-		
-					// Poor man's change layer order
-					if (index > 0)
-					{
-						var img2 = document.createElement('a');
-						
-						img2.setAttribute('title', mxResources.get('toBack'));
-						
-						img2.className = 'geButton';
-						img2.style.cssFloat = 'none';
-						img2.innerHTML = '&#9660;';
-						img2.style.width = '14px';
-						img2.style.height = '14px';
-						img2.style.fontSize = '14px';
-						img2.style.margin = '0px';
-						img2.style.marginTop = '-1px';
-						right.appendChild(img2);
-						
-						mxEvent.addListener(img2, 'click', function(evt)
-						{
-							if (graph.isEnabled())
-							{
-								graph.addCell(child, graph.model.root, index - 1);
-							}
-							
-							mxEvent.consume(evt);
-						});
-					}
-		
-					if (index >= 0 && index < layerCount - 1)
-					{
-						var img1 = document.createElement('a');
-						
-						img1.setAttribute('title', mxResources.get('toFront'));
-						
-						img1.className = 'geButton';
-						img1.style.cssFloat = 'none';
-						img1.innerHTML = '&#9650;';
-						img1.style.width = '14px';
-						img1.style.height = '14px';
-						img1.style.fontSize = '14px';
-						img1.style.margin = '0px';
-						img1.style.marginTop = '-1px';
-						right.appendChild(img1);
-						
-						mxEvent.addListener(img1, 'click', function(evt)
-						{
-							if (graph.isEnabled())
-							{
-								graph.addCell(child, graph.model.root, index + 1);
-							}
-							
-							mxEvent.consume(evt);
-						});
-					}
-					
-					ldiv.appendChild(right);
-				}
-				
-				if (mxClient.IS_SVG && (!mxClient.IS_IE || document.documentMode >= 10))
-				{
-					ldiv.setAttribute('draggable', 'true');
-					ldiv.style.cursor = 'move';
-				}
-			}
-
-			mxEvent.addListener(ldiv, 'dblclick', function(evt)
-			{
-				var nodeName = mxEvent.getSource(evt).nodeName;
-				
-				if (nodeName != 'INPUT' && nodeName != 'IMG' &&
-					span.contentEditable != 'true')
-				{
-					renameLayer(child);
-					mxEvent.consume(evt);
-				}
-			});
-
-			if (graph.getDefaultParent() == child)
-			{
-				ldiv.classList.add('geActivePage');
-				ldiv.style.fontWeight = (graph.isEnabled()) ? 'bold' : '';
-				selectionLayer = child;
-			}
-
-			mxEvent.addListener(ldiv, 'click', function(evt)
-			{
-				if (graph.isEnabled() && span.contentEditable != 'true')
-				{
-					graph.setDefaultParent(defaultParent);
-					graph.view.setCurrentRoot(null);
-
-					if (mxEvent.isShiftDown(evt))
-					{
-						graph.setSelectionCells(child.children);	
-					}
-					
-					mxEvent.consume(evt);
-				}
-			});
-			
-			listDiv.appendChild(ldiv);
-		};
-		
-		// Cannot be moved or deleted
-		for (var i = layerCount - 1; i >= 0; i--)
-		{
-			(mxUtils.bind(this, function(child)
-			{
-				addLayer(i, graph.convertValueToString(child) ||
-					mxResources.get('background'), child, child);
-			}))(graph.model.getChildAt(graph.model.root, i));
-		}
-		
-		var label = graph.convertValueToString(selectionLayer) || mxResources.get('background');
-		removeLink.setAttribute('title', mxResources.get('removeIt', [label]));
-		duplicateLink.setAttribute('title', mxResources.get('duplicateIt', [label]));
-
-		if (graph.isSelectionEmpty())
-		{
-			insertLink.classList.add('mxDisabled');
-		}
-		
-		updateLayerDot();
-	};
-
-	refresh();
-	graph.model.addListener(mxEvent.CHANGE, refresh);
-	graph.addListener('defaultParentChanged', refresh);
-	editorUi.addListener('lockedChanged', refresh);
-
 	function renameLayer(layer)
 	{
 		if (graph.isEnabled() && layer != null)
@@ -3847,11 +3340,11 @@ var LayersWindow = function(editorUi, x, y, w, h)
 
 			if (div != null)
 			{
-				var spans = div.getElementsByTagName('span');
+				var spans = div.getElementsByTagName('div');
 
-				if (spans != null && spans.length > 0)
+				if (spans != null && spans.length > 1)
 				{
-					var span = spans[0];
+					var span = spans[1];
 					var oldValue = mxUtils.getTextContent(span);
 					span.style.textOverflow = '';
 					span.style.cursor = 'text';
@@ -3909,22 +3402,652 @@ var LayersWindow = function(editorUi, x, y, w, h)
 		}
 	};
 	
-	graph.selectionModel.addListener(mxEvent.CHANGE, function()
+	var menuLink = link.cloneNode(false);
+	menuLink.style.backgroundImage = 'url(' + Editor.menuImage + ')';
+	ldiv.appendChild(menuLink);
+
+	function isLayersVisible(layers)
 	{
-		if (graph.isSelectionEmpty())
+		var visible = true;
+
+		for (var i = 0; i < layers.length; i++)
 		{
-			insertLink.classList.add('mxDisabled');
+			if (!model.isVisible(layers[i]))
+			{
+				visible = false;
+				break;
+			}
+		}
+
+		return visible;
+	};
+
+	function selectLayers(selected)
+	{
+		var divs = layerDivs.getValues();
+		
+		for (var i = 0; i < divs.length; i++)
+		{
+			var cb = divs[i].getElementsByTagName('input')[0];
+			
+			if (cb != null)
+			{
+				cb.checked = (selected != null) ?
+					selected : !cb.checked;
+			}
+		}
+	};
+
+	function isLayerSelected(layer)
+	{
+		var div = layerDivs.get(layer);
+		
+		if (div != null)
+		{
+			var cb = div.getElementsByTagName('input')[0];
+			return cb != null && cb.checked;
+		}
+		
+		return false;
+	};
+
+	function getSelectedLayers(exclude, ignoreCheckbox)
+	{
+		var layers = [];
+
+		for (var i = 0; i < model.getChildCount(model.root); i++)
+		{
+			var layer = model.getChildAt(model.root, i);
+
+			if (layer != exclude && (ignoreCheckbox ||
+				isLayerSelected(layer)))
+			{
+				layers.push(layer);
+			}
+		}
+
+		return layers;
+	};
+
+	function setLayersLocked(layers, locked)
+	{
+		graph.setCellStyles('locked', (locked) ? '1' : '0', layers);
+
+		if (locked)
+		{
+			for (var i = 0; i < layers.length; i++)
+			{
+				graph.removeSelectionCells(model.getDescendants(layers[i]));
+			}
+		}
+	};
+
+	mxEvent.addListener(menuLink, 'click', function(evt)
+	{
+		if (graph.isEnabled())
+		{
+			editorUi.editor.graph.popupMenuHandler.hideMenu();
+			
+			var selectedLayers = getSelectedLayers();
+			var index = model.root.getIndex(selectionLayer);
+			var enabled = selectedLayers.length > 0 && graph.isEnabled();
+			var nothingIsSelected = mxResources.get('nothingIsSelected');
+			var layer = graph.getLayerForCells(graph.getSelectionCells());
+			var label = graph.convertValueToString(selectionLayer) || mxResources.get('background');
+
+			var menu = new mxPopupMenu(mxUtils.bind(this, function(menu, parent)
+			{
+				// Adds submenu for multiple selected layers
+				var layersSubmenu = menu.addItem(mxResources.get('layers'), null, null, parent);
+
+				menu.addItem(mxResources.get('selectAll'), null, mxUtils.bind(this, function()
+				{
+					refresh();
+					selectLayers(true);
+				}), layersSubmenu);
+
+				menu.addItem(mxResources.get('selectNone'), null, mxUtils.bind(this, function()
+				{
+					refresh();
+					selectLayers(false);
+				}), layersSubmenu, null, selectedLayers.length > 0).setAttribute('title',
+					selectedLayers.length > 0 ? mxResources.get('selectNone') : nothingIsSelected);
+
+				menu.addItem(mxResources.get('invertSelection'), null, mxUtils.bind(this, function()
+				{
+					refresh();
+					selectLayers();
+				}), layersSubmenu);
+
+				menu.addSeparator(layersSubmenu);
+				
+				menu.addItem(mxResources.get('show'), null, mxUtils.bind(this, function()
+				{
+					graph.setCellsVisible(selectedLayers, true);
+				}), layersSubmenu, null, enabled).setAttribute('title', selectedLayers.length > 0 ?
+						mxResources.get('show') : nothingIsSelected);
+				menu.addItem(mxResources.get('hide'), null, mxUtils.bind(this, function()
+				{
+					graph.setCellsVisible(selectedLayers, false);
+				}), layersSubmenu, null, enabled).setAttribute('title', selectedLayers.length > 0 ?
+						mxResources.get('hide') : nothingIsSelected);
+
+				menu.addSeparator(layersSubmenu);
+
+				menu.addItem(mxResources.get('lock'), null, mxUtils.bind(this, function()
+				{
+					setLayersLocked(getSelectedLayers(), true);
+				}), layersSubmenu, null, enabled).setAttribute('title', selectedLayers.length > 0 ?
+						mxResources.get('lock') : nothingIsSelected);
+
+				menu.addItem(mxResources.get('unlock'), null, mxUtils.bind(this, function()
+				{
+					setLayersLocked(getSelectedLayers(), false);
+				}), layersSubmenu, null, enabled).setAttribute('title', selectedLayers.length > 0 ?
+						mxResources.get('unlock') : nothingIsSelected);
+				
+				// Adds submenu for single layer operations
+				var layerSubmenu = menu.addItem(mxResources.get('currentLayer'), null, null, parent);
+				
+				menu.addItem(mxResources.get('duplicate'), null, mxUtils.bind(this, function()
+				{
+					selectLayers(false);
+					var newCell = null;
+					model.beginUpdate();
+					try
+					{
+						newCell = graph.cloneCell(selectionLayer);
+						graph.cellLabelChanged(newCell, mxResources.get('copyOf', [label]));
+						newCell = graph.addCell(newCell, model.root, index + 1);
+						newCell.setVisible(true);
+					}
+					finally
+					{
+						model.endUpdate();
+					}
+
+					if (newCell != null && !graph.isCellLocked(newCell))
+					{
+						graph.setDefaultParent(newCell);
+						graph.selectAll(newCell);
+					}
+				}), layerSubmenu);
+
+				menu.addSeparator(layerSubmenu);
+
+				menu.addItem(mxResources.get('rename'), null, mxUtils.bind(this, function()
+				{
+					renameLayer(selectionLayer);
+				}), layerSubmenu);
+
+				menu.addItem(mxResources.get('editData'), null, mxUtils.bind(this, function()
+				{
+					editorUi.showDataDialog(selectionLayer);
+				}), layerSubmenu);
+
+				if (layerCount > 1)
+				{
+					menu.addSeparator(layerSubmenu);
+
+					menu.addItem(mxResources.get('toFront'), null, mxUtils.bind(this, function()
+					{
+						graph.addCell(selectionLayer, model.root, layerCount - 1);
+					}), layerSubmenu, null, index >= 0 && index < layerCount - 1);
+
+					menu.addItem(mxResources.get('toBack'), null, mxUtils.bind(this, function()
+					{
+						graph.addCell(selectionLayer, model.root, 0);
+					}), layerSubmenu, null, index > 0);
+
+					if (layerCount > 2)
+					{
+						menu.addItem(mxResources.get('bringForward'), null, mxUtils.bind(this, function()
+						{
+							graph.addCell(selectionLayer, model.root, index + 1);
+						}), layerSubmenu, null, index >= 0 && index < layerCount - 1);
+
+						menu.addItem(mxResources.get('sendBackward'), null, mxUtils.bind(this, function()
+						{
+							graph.addCell(selectionLayer, model.root, index - 1);
+						}), layerSubmenu, null, index > 0);
+					}
+				}
+
+				menu.addSeparator(layerSubmenu);
+
+				menu.addItem(mxResources.get('selectObjectsInLayer'), null, mxUtils.bind(this, function()
+				{
+					graph.clearSelection();
+					graph.selectAll(selectionLayer);
+				}), layerSubmenu, null, selectionLayer.children != null &&
+					selectionLayer.children.length > 0);
+
+				// Adds submenu for moving selection cells
+				var moveSubmenu = menu.addItem(mxResources.get('moveSelectionTo', ['']),
+					null, null, parent, null, !graph.isSelectionEmpty());
+				
+				if (graph.isSelectionEmpty())
+				{
+					moveSubmenu.setAttribute('title', mxResources.get('nothingIsSelected'));
+				}
+
+				for (var i = layerCount - 1; i >= 0; i--)
+				{
+					(mxUtils.bind(this, function(child)
+					{
+						var locked = mxUtils.getValue(graph.getCurrentCellStyle(child), 'locked', '0') == '1';
+
+						var item = menu.addItem(graph.convertValueToString(child) ||
+							mxResources.get('background'), null, mxUtils.bind(this, function()
+						{
+							if (!locked)
+							{
+								graph.moveCells(graph.getSelectionCells(), 0, 0, false, child);
+							}
+						}), moveSubmenu, null, !locked);
+
+						if (locked)
+						{
+							item.setAttribute('title', mxResources.get('locked'));
+						}
+
+						if (child == layer)
+						{
+							menu.addCheckmark(item, Editor.checkmarkImage);
+						}
+					}))(model.getChildAt(model.root, i));
+				}
+			}));
+			
+			menu.smartSeparators = true;
+			menu.showDisabled = true;
+			menu.autoExpand = true;
+			
+			// Disables autoexpand and destroys menu when hidden
+			menu.hideMenu = mxUtils.bind(this, function()
+			{
+				mxPopupMenu.prototype.hideMenu.apply(menu, arguments);
+				menu.destroy();
+			});
+		
+			var x = mxEvent.getClientX(evt);
+			var y = mxEvent.getClientY(evt);
+			menu.popup(x, y, null, evt);
+			
+			// Allows hiding by clicking on document
+			editorUi.setCurrentMenu(menu);
+			mxEvent.consume(evt);
+		}
+	});
+	
+	if (!graph.isEnabled())
+	{
+		menuLink.classList.add('mxDisabled');
+	}
+	
+	var removeLink = link.cloneNode(false);
+	removeLink.style.backgroundImage = 'url(' + Editor.trashImage + ')';
+	removeLink.setAttribute('title', mxResources.get('delete'));
+	ldiv.appendChild(removeLink);
+
+	mxEvent.addListener(removeLink, 'click', function(evt)
+	{
+		if (graph.isEnabled())
+		{
+			model.beginUpdate();
+			try
+			{
+				var index = model.root.getIndex(selectionLayer);
+				var layers = getSelectedLayers();
+
+				if (layers.length == 0)
+				{
+					layers.push(selectionLayer);
+				}
+				
+				graph.removeCells(layers, false);
+				
+				// Creates default layer if no layer exists
+				if (model.getChildCount(model.root) == 0)
+				{
+					model.add(model.root, new mxCell());
+					graph.setDefaultParent(null);
+				}
+				else if (index > 0 && index <= model.getChildCount(model.root))
+				{
+					graph.setDefaultParent(model.getChildAt(model.root, index - 1));
+				}
+				else
+				{
+					graph.setDefaultParent(null);
+				}
+			}
+			finally
+			{
+				model.endUpdate();
+			}
+		}
+		
+		mxEvent.consume(evt);
+	});
+	
+	if (!graph.isEnabled())
+	{
+		removeLink.classList.add('mxDisabled');
+	}
+
+	div.appendChild(ldiv);
+	
+	var dot = document.createElement('span');
+	dot.setAttribute('title', mxResources.get('allSelectedObjectsInThisLayer'));
+	dot.innerHTML = '&#8226;';
+	dot.style.padding = '0 2px';
+	dot.style.fontSize = '16pt';
+	dot.style.right = '6px';
+	dot.style.order = '1';
+	
+	function updateLayerDot()
+	{
+		var div = layerDivs.get(graph.getLayerForCells(graph.getSelectionCells()));
+		
+		if (div != null)
+		{
+			div.appendChild(dot);
+		}
+		else if (dot.parentNode != null)
+		{
+			dot.parentNode.removeChild(dot);
+		}
+	};
+
+	function refresh()
+	{
+		if (graph.isEnabled())
+		{
+			removeLink.classList.remove('mxDisabled');
+			menuLink.classList.remove('mxDisabled');
+			addLink.classList.remove('mxDisabled');
 		}
 		else
 		{
-			insertLink.classList.remove('mxDisabled');
+			removeLink.classList.add('mxDisabled');
+			menuLink.classList.add('mxDisabled');
+			addLink.classList.add('mxDisabled');
 		}
 		
+		layerCount = model.getChildCount(model.root)
+		listDiv.innerText = '';
+		var newLayerDivs = new mxDictionary();
+		
+		function addLayer(index, label, child, defaultParent, selected)
+		{
+			var ldiv = document.createElement('div');
+			ldiv.className = 'geToolbarContainer';
+			ldiv.style.overflow = 'hidden';
+			ldiv.style.position = 'relative';
+			ldiv.style.height = '30px';
+			ldiv.style.display = 'flex';
+			ldiv.style.padding = '0 8px';
+			ldiv.style.alignItems = 'center';
+			ldiv.style.justifyContent = 'flex-start';
+			ldiv.style.borderWidth = '0px 0px 1px 0px';
+			ldiv.style.borderStyle = 'solid';
+			ldiv.style.whiteSpace = 'nowrap';
+			ldiv.setAttribute('title', label  +
+				' (' + child.getId() + ')');
+			newLayerDivs.put(child, ldiv);
+
+			var cb = document.createElement('input');
+			cb.setAttribute('type', 'checkbox');
+			cb.style.cursor = 'pointer';
+			cb.style.order = '2';
+			cb.checked = selected;
+			cb.style.display = (graph.isEnabled()) ? '' : 'none';
+			ldiv.appendChild(cb);
+			
+			var div = document.createElement('div');
+			div.style.display = 'flex';
+			div.style.alignItems = 'center';
+			div.style.flexGrow = '1';
+			ldiv.appendChild(div);
+
+			mxEvent.addListener(cb, 'click', function(evt)
+			{
+				if (mxEvent.isShiftDown(evt))
+				{
+					selectLayers(cb.checked);
+				}
+			});
+
+			var title = document.createElement('div');
+			mxUtils.write(title, label);
+			title.style.whiteSpace = 'nowrap';
+			title.style.overflow = 'hidden';
+			title.style.textOverflow = 'ellipsis';
+			title.style.marginRight = '4px';
+			title.style.padding = '4px';
+			title.style.flexGrow = '1';
+
+			mxEvent.addListener(ldiv, 'dragover', function(evt)
+			{
+				evt.dataTransfer.dropEffect = 'move';
+				dropIndex = index;
+				evt.stopPropagation();
+				evt.preventDefault();
+			});
+			
+			mxEvent.addListener(ldiv, 'dragstart', function(evt)
+			{
+				if (title.contentEditable != 'true')
+				{
+					dragSource = ldiv;
+					
+					// Workaround for no DnD on DIV in FF
+					if (mxClient.IS_FF)
+					{
+						// LATER: Check what triggers a parse as XML on this in FF after drop
+						evt.dataTransfer.setData('Text', '<layer/>');
+					}
+				}
+			});
+			
+			mxEvent.addListener(ldiv, 'dragend', function(evt)
+			{
+				if (dragSource != null && dropIndex != null &&
+					model.getChildCount(model.root) > 1)
+				{
+					graph.addCell(child, model.root, dropIndex);
+				}
+
+				dragSource = null;
+				dropIndex = null;
+				evt.stopPropagation();
+				evt.preventDefault();
+			});
+
+			var visible = model.isVisible(child);
+			var inp = document.createElement('img');
+			inp.className = 'geAdaptiveAsset';
+			inp.style.width = '16px';
+			inp.style.padding = '0px 6px 0 0';
+			inp.style.cursor = 'pointer';
+			inp.setAttribute('title', mxResources.get(
+				visible ? 'hide' : 'show'));
+
+			if (visible)
+			{
+				inp.setAttribute('src', Editor.visibleImage);
+				mxUtils.setOpacity(div, 90);
+			}
+			else
+			{
+				inp.setAttribute('src', Editor.hiddenImage);
+				mxUtils.setOpacity(div, 40);
+			}
+
+			if (!graph.isEnabled())
+			{
+				mxUtils.setOpacity(inp, 50);
+			}
+
+			div.appendChild(inp);
+
+			mxEvent.addListener(inp, 'click', function(evt)
+			{
+				if (graph.isEnabled())
+				{
+					if (mxEvent.isShiftDown(evt))
+					{
+						var others = getSelectedLayers(child, true);
+						graph.setCellsVisible(others, !isLayersVisible(others));
+					}
+					else
+					{
+						graph.setCellsVisible([child], !visible);
+					}
+				}
+
+				mxEvent.consume(evt);
+			});
+
+			var btn = inp.cloneNode(false);
+			var style = graph.getCurrentCellStyle(child);
+			btn.setAttribute('title', mxResources.get('lockUnlock'));
+			var locked = mxUtils.getValue(style, 'locked', '0') == '1';
+
+			if (locked)
+			{
+				btn.setAttribute('src', Editor.lockedImage);
+				mxUtils.setOpacity(btn, 90);
+				ldiv.style.color = 'red';
+			}
+			else
+			{
+				btn.setAttribute('src', Editor.unlockedImage);
+				mxUtils.setOpacity(btn, 40);
+			}
+			
+			if (graph.isEnabled())
+			{
+				btn.style.cursor = 'pointer';
+			}
+
+			function toggleLock(allLayers)
+			{
+				var value = null;
+				
+				model.beginUpdate();
+				try
+				{
+					value = (locked) ? null : '1';
+
+					if (allLayers)
+					{
+						var parent = model.getParent(child);
+
+						for (var i = 0; i < model.getChildCount(parent); i++)
+						{
+							graph.setCellStyles('locked', value,
+								[model.getChildAt(parent, i)]);
+						}
+					}
+					else
+					{
+						graph.setCellStyles('locked', value, [child]);
+					}
+				}
+				finally
+				{
+					model.endUpdate();
+				}
+
+				if (value == '1')
+				{
+					graph.removeSelectionCells(model.getDescendants(child));
+				}
+			};
+			
+			mxEvent.addListener(btn, 'click', function(evt)
+			{
+				if (graph.isEnabled())
+				{
+					setLayersLocked(mxEvent.isShiftDown(evt) ?
+						getSelectedLayers(null, true) : [child],
+						!locked);
+					mxEvent.consume(evt);
+				}
+			});
+
+			div.appendChild(btn);
+			div.appendChild(title);
+			
+			mxEvent.addListener(ldiv, 'dblclick', function(evt)
+			{
+				var nodeName = mxEvent.getSource(evt).nodeName;
+				
+				if (nodeName != 'INPUT' && nodeName != 'IMG' &&
+					title.contentEditable != 'true')
+				{
+					renameLayer(child);
+					mxEvent.consume(evt);
+				}
+			});
+
+			if (graph.getDefaultParent() == child)
+			{
+				ldiv.classList.add('geActivePage');
+				ldiv.style.fontWeight = (graph.isEnabled()) ? 'bold' : '';
+				selectionLayer = child;
+			}
+
+			mxEvent.addListener(ldiv, 'click', function(evt)
+			{
+				if (graph.isEnabled() && title.contentEditable != 'true' &&
+					mxEvent.getSource(evt) != cb)
+				{
+					graph.setDefaultParent(defaultParent);
+					graph.view.setCurrentRoot(null);
+
+					if (mxEvent.isShiftDown(evt))
+					{
+						graph.clearSelection();
+						graph.selectAll(selectionLayer);
+					}
+
+					mxEvent.consume(evt);
+				}
+			});
+			
+			listDiv.appendChild(ldiv);
+		};
+		
+		for (var i = layerCount - 1; i >= 0; i--)
+		{
+			(mxUtils.bind(this, function(child)
+			{
+				addLayer(i, graph.convertValueToString(child) ||
+					mxResources.get('background'), child, child,
+					// graph.getDefaultParent() == child ||
+					isLayerSelected(child));
+			}))(model.getChildAt(model.root, i));
+		}
+
+		layerDivs = newLayerDivs;
+		updateLayerDot();
+	};
+
+	refresh();
+	model.addListener(mxEvent.CHANGE, refresh);
+	graph.addListener('defaultParentChanged', refresh);
+	editorUi.addListener('lockedChanged', refresh);
+
+	graph.selectionModel.addListener(mxEvent.CHANGE, function()
+	{
 		updateLayerDot();
 	});
 
 	this.window = new mxWindow(mxResources.get('layers'), div, x, y, w, h, true, true);
-	this.window.minimumSize = new mxRectangle(0, 0, 150, 120);
+	this.window.minimumSize = new mxRectangle(0, 0, 170, 120);
 	this.window.destroyOnClose = false;
 	this.window.setMaximizable(false);
 	this.window.setResizable(true);

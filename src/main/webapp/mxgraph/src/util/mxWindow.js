@@ -914,11 +914,11 @@ mxWindow.prototype.installMoveHandler = function()
  * 
  * Sets the upper, left corner of the window.
  */
- mxWindow.prototype.setLocation = function(x, y)
- {
+mxWindow.prototype.setLocation = function(x, y)
+{
 	this.div.style.left = x + 'px';
 	this.div.style.top = y + 'px';
- };
+};
 
 /**
  * Function: getX

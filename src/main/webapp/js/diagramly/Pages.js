@@ -1763,6 +1763,7 @@ EditorUi.prototype.createControlTab = function(title, image, fn)
 {
 	var tab = this.createTab();
 	tab.className = 'geTab geControlTab';
+	
 	if (title != null)
 	{
 		tab.setAttribute('title', title);

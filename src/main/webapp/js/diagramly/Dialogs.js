@@ -1736,7 +1736,6 @@ var ParseDialog = function(editorUi, title, defaultType)
 				
 				function insertPlantUmlImage(text, format, data, w, h)
 				{
-					insertPoint = (mxEvent.isAltDown(evt)) ? insertPoint : graph.getCenterInsertPoint(new mxRectangle(0, 0, w, h));
 					var cell = null;
 					
 					graph.getModel().beginUpdate();
@@ -1910,8 +1909,6 @@ var ParseDialog = function(editorUi, title, defaultType)
 			if (cells.length > 0)
 			{
 				var graph = editorUi.editor.graph;
-				insertPoint = (mxEvent.isAltDown(evt)) ? insertPoint :
-					graph.getCenterInsertPoint(graph.getBoundingBoxFromGeometry(cells, true));
 				graph.setSelectionCells(graph.importCells(cells, insertPoint.x, insertPoint.y));
 				graph.scrollCellToVisible(graph.getSelectionCell());
 			}
@@ -1982,9 +1979,6 @@ var ParseDialog = function(editorUi, title, defaultType)
 				
 				if (cells.length > 0)
 				{
-					insertPoint = (mxEvent.isAltDown(evt)) ? insertPoint :
-						graph.getCenterInsertPoint(graph.getBoundingBoxFromGeometry(cells, true));
-					
 					graph.getModel().beginUpdate();
 					try
 					{
@@ -2010,7 +2004,8 @@ var ParseDialog = function(editorUi, title, defaultType)
 			}
 		}
 		else
-		{		
+		{
+			var lines = text.split('\n');
 			var vertices = new Object();
 			var cells = [];
 			
@@ -2119,8 +2114,6 @@ var ParseDialog = function(editorUi, title, defaultType)
 				try
 				{
 					cells = graph.getModel().getChildren(graph.getDefaultParent());
-					insertPoint = (mxEvent.isAltDown(evt)) ? insertPoint :
-						editorUi.editor.graph.getCenterInsertPoint(graph.getBoundingBoxFromGeometry(cells, true));
 					inserted = editorUi.editor.graph.importCells(cells, insertPoint.x, insertPoint.y)
 					editorUi.editor.graph.fireEvent(new mxEventObject('cellsInserted', 'cells', inserted));
 				}
@@ -8559,13 +8552,14 @@ var ChatWindow = function(editorUi, x, y, w, h)
 	typeSelect.style.padding = '5px';
 	typeSelect.style.minWidth = '0';
 
+	var createPublicOption = document.createElement('option');
+	
 	if (typeof mxMermaidToDrawio !== 'undefined' && window.isMermaidEnabled &&
 		mxUtils.indexOf(Editor.aiActions, 'createPublic') >= 0)
 	{
-		var createPublicOption = document.createElement('option');
 		createPublicOption.setAttribute('value', 'createPublic');
 		mxUtils.write(createPublicOption, mxResources.get('create') +
-			' (' + mxResources.get('diagramIsPublic') + ')');
+			' (' + mxResources.get('draw.io') + ')');
 		typeSelect.appendChild(createPublicOption);
 	}
 
@@ -8573,6 +8567,14 @@ var ChatWindow = function(editorUi, x, y, w, h)
 	var selectionOption = document.createElement('option');
 	var createOption = document.createElement('option');
 	var helpOption = document.createElement('option');
+
+	if (typeof mxMermaidToDrawio !== 'undefined' && window.isMermaidEnabled &&
+		mxUtils.indexOf(Editor.aiActions, 'create') >= 0)
+	{
+		createOption.setAttribute('value', 'create');
+		mxUtils.write(createOption, mxResources.get('create'));
+		typeSelect.appendChild(createOption);
+	}
 
 	if (mxUtils.indexOf(Editor.aiActions, 'update') >= 0)
 	{
@@ -8585,14 +8587,6 @@ var ChatWindow = function(editorUi, x, y, w, h)
 		typeSelect.appendChild(selectionOption);
 	}
 	
-	if (typeof mxMermaidToDrawio !== 'undefined' && window.isMermaidEnabled &&
-		mxUtils.indexOf(Editor.aiActions, 'create') >= 0)
-	{
-		createOption.setAttribute('value', 'create');
-		mxUtils.write(createOption, mxResources.get('create'));
-		typeSelect.appendChild(createOption);
-	}
-
 	if (mxUtils.indexOf(Editor.aiActions, 'assist') >= 0)
 	{
 		helpOption.setAttribute('value', 'assist');
@@ -8600,8 +8594,6 @@ var ChatWindow = function(editorUi, x, y, w, h)
 		typeSelect.appendChild(helpOption);
 	}
 
-	typeSelect.value = Editor.aiActions[0];
-	
 	// Adds a drop down for selecting the model from Editor.aiModels
 	var modelSelect = typeSelect.cloneNode(false);
 
@@ -8651,6 +8643,11 @@ var ChatWindow = function(editorUi, x, y, w, h)
 
 	if (!publicChat)
 	{
+		if (urlParams['test'] != 1)
+		{
+			createPublicOption.parentNode.removeChild(createPublicOption);
+		}
+
 		options.appendChild(typeSelect);
 
 		if (modelSelect.children.length > 1)
@@ -8659,6 +8656,11 @@ var ChatWindow = function(editorUi, x, y, w, h)
 		}
 		
 		user.appendChild(options);
+	}
+
+	if (typeSelect.children.length > 0)
+	{
+		typeSelect.value = typeSelect.children[0].value;
 	}
 
 	var ignoreChange = false;
@@ -8802,7 +8804,10 @@ var ChatWindow = function(editorUi, x, y, w, h)
 			editorUi.writeTextToClipboard(prompt, mxUtils.bind(this, function(e)
 			{
 				editorUi.handleError(e);
-			}));
+			}), function()
+			{
+				editorUi.alert(mxResources.get('copiedToClipboard'));
+			});
 		}));
 		buttons.appendChild(btn);
 
@@ -8832,19 +8837,59 @@ var ChatWindow = function(editorUi, x, y, w, h)
 		waiting.className = 'geSidebar';
 		waiting.style.marginTop = '2px';
 
-		function createError(message)
+		function createRetryButton(title)
 		{
-			var wrapper = document.createElement('div');
-			wrapper.style.display = 'flex';
-			wrapper.style.alignItems = 'center';
-			mxUtils.write(wrapper, mxResources.get('error') + ': ' + message);
+			var buttons = document.createElement('div');
+			buttons.style.display = 'flex';
 
 			var btn = document.createElement('img');
 			btn.className = 'geAdaptiveAsset geLibraryButton';
 			btn.setAttribute('src', Editor.refreshImage);
-			btn.setAttribute('title', mxResources.get('tryAgain'));
+			btn.setAttribute('title', (title != null) ? title : mxResources.get('tryAgain'));
+			buttons.appendChild(btn);
 			mxEvent.addListener(btn, 'click', processMessage);
-			wrapper.appendChild(btn);
+			
+			return buttons;
+		};
+
+		function parseAIMarkup(text) {
+			return mxUtils.htmlEntities(text, false)
+				// Headings (consume surrounding newlines)
+				.replace(/\n*^##### (.+)$\n*/gm, '<h5>$1</h5>')
+				.replace(/\n*^#### (.+)$\n*/gm, '<h4>$1</h4>')
+				.replace(/\n*^### (.+)$\n*/gm, '<h3>$1</h3>')
+				.replace(/\n*^## (.+)$\n*/gm, '<h2>$1</h2>')
+				.replace(/\n*^# (.+)$\n*/gm, '<h1>$1</h1>')
+				// Bold
+				.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+				// Italic
+				.replace(/\*(.+?)\*/g, '<em>$1</em>')
+				// Inline code
+				.replace(/`([^`]+)`/g, '<code>$1</code>')
+		};
+		
+		function createDivForText(text)
+		{
+			var wrapper = document.createElement('div');
+			wrapper.style.whiteSpace = 'pre-wrap';
+			wrapper.innerHTML = Graph.sanitizeHtml(parseAIMarkup(text));
+
+			return wrapper;
+		};
+		
+		function createError(message)
+		{
+			var title = mxResources.get('error') + ': ';
+			var wrapper = document.createElement('div');
+			wrapper.style.whiteSpace = 'pre-wrap';
+
+			if (message.substring(0, title.length) != title)
+			{
+				message = title + message;
+			}
+
+			mxUtils.write(wrapper, message);
+			wrapper.appendChild(createRetryButton());
 			
 			return wrapper;
 		};
@@ -9016,11 +9061,23 @@ var ChatWindow = function(editorUi, x, y, w, h)
 			
 			var handleResponse = mxUtils.bind(this, function(data, prompt)
 			{
+				var dt = Date.now() - t0;
 				EditorUi.debug('EditorUi.ChatWindow.handleResponse',
-					'data', data, 'prompt', [prompt],
-					'time', Date.now() - t0);
-				var cells = (data != null) ? editorUi.stringToCells(data[1]) : null;
+					'data', data, 'prompt', [prompt], 'time', dt);
+				var cells = null;
 
+				if (data != null && data.length > 1 && data[1].length > 0)
+				{
+					try
+					{
+						cells = editorUi.stringToCells(data[1]);
+					}
+					catch (e)
+					{
+						throw new Error(e.toString() + '\n\n' + data[1]);
+					}
+				}
+				
 				if (cells != null && cells.length > 0)
 				{
 					var bbox = graph.getBoundingBoxFromGeometry(cells);
@@ -9084,8 +9141,7 @@ var ChatWindow = function(editorUi, x, y, w, h)
 
 					if (data[0].length > 0)
 					{
-						mxUtils.write(bubble, data[0]);
-						mxUtils.br(bubble);
+						bubble.appendChild(createDivForText(data[0]));
 					}
 
 					if (data[1].length > 0)
@@ -9106,6 +9162,11 @@ var ChatWindow = function(editorUi, x, y, w, h)
 						bubble.appendChild(item);
 						editorUi.sidebar.createItem(cells, prompt, true, true, bbox.width, bbox.height,
 							true, true, clickFn, null, null, null, null, null, item);
+
+						if (!publicChat && type != 'createPublic' && urlParams['test'] == 1)
+						{
+							item.setAttribute('title', theModel + ' (' + dt + ' ms)');
+						}
 						
 						var buttons = document.createElement('div');
 						buttons.style.display = 'flex';
@@ -9177,8 +9238,7 @@ var ChatWindow = function(editorUi, x, y, w, h)
 
 					if (data[2].length > 0)
 					{
-						mxUtils.br(bubble);
-						mxUtils.write(bubble, data[2]);
+						bubble.appendChild(createDivForText(data[2]));
 					}
 				}
 				else
@@ -9194,8 +9254,10 @@ var ChatWindow = function(editorUi, x, y, w, h)
 					}
 					else
 					{
-						mxUtils.write(bubble, data[0]);
-						mxUtils.write(bubble, data[2]);
+						bubble.style.whiteSpace = 'pre-wrap';
+						bubble.appendChild(createDivForText(data[0]));
+						bubble.appendChild(createDivForText(data[2]));
+						bubble.appendChild(createRetryButton(mxResources.get('refresh')));
 					}
 				}
 
@@ -9234,7 +9296,7 @@ var ChatWindow = function(editorUi, x, y, w, h)
 						}
 					});
 
-					EditorUi.debug('EditorUi.ChatWindow.addMessage', 'url', url,
+					EditorUi.debug('EditorUi.ChatWindow.addMessage send', 'url', url,
 						'params', params, 'aiModel', aiModel, 'config', config);
 
 					req.send(mxUtils.bind(this, function(req)
@@ -9249,7 +9311,7 @@ var ChatWindow = function(editorUi, x, y, w, h)
 									var result = Editor.executeSimpleJsonPath(response, config.responsePath);
 									var text = mxUtils.trim((result.length > 0) ? result[0] : req.getText());
 									var mermaid = editorUi.extractMermaidDeclaration(text);
-									EditorUi.debug('EditorUi.ChatWindow.addMessage',
+									EditorUi.debug('EditorUi.ChatWindow.addMessage response',
 										'params', params, 'response', response,
 										'text', [text], 'mermaid', [mermaid]);
 
@@ -9360,7 +9422,7 @@ var ChatWindow = function(editorUi, x, y, w, h)
 	// Adds help icon to title bar
 	if (!editorUi.isOffline())
 	{
-		var icon = editorUi.createHelpIcon('https://github.com/jgraph/drawio/discussions/5387');
+		var icon = editorUi.createHelpIcon('https://www.drawio.com/doc/faq/configure-ai-options');
 		icon.style.cursor = 'help';
 		icon.style.opacity = '0.5';
 		this.window.buttons.insertBefore(icon, this.window.buttons.firstChild);

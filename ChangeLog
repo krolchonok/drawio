@@ -1,3 +1,30 @@
+08-JAN-2026: 29.3.0
+
+- Fixes possible NPE
+- Merges built preprod back to dev as PR rather than commit
+- Adapts validate actions for PR merge instead of cherry picking
+- Fixes possible invalid default parent
+- Hides current menu when windows are moved or resized
+- Adds layer selection in layers dialog [jgraph/drawio#5408]
+- Fixes inconsistent menu order for current layer
+- Fixes possible NPE [jgraph/drawio-desktop#2307]
+- Adds legacy support for anchor points [jgraph/drawio-desktop#2306]
+- Fixes resources for selecting and selected objects in layers
+- Adds defaultTextStyle config switch
+- Adds autosize for shape picker text [jgraph/drawio#5409]
+- Disables legacy anchor points only on unconnected flipped shapes
+
+06-JAN-2026: 29.2.10
+
+- Fixes help link in chat dialog
+- Fixed a bug in vsdx importer [DID-17282]
+- Improves generate dialog for custom LLMs
+- Changes default for desktopAutoSync to true [jgraph/drawio-desktop#2227]
+- Uses fonts loader path for MathJax
+- Fixes multi-line issue
+- Sanitize HTML output in ChatWindow
+- Improves layers dialog [jgraph/drawio#5408]
+
 19-DEC-2025: 29.2.9
 
 - Updates MathJax fonts to 4.1.0

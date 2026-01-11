@@ -48,7 +48,7 @@ if (!mxIsElectron)
 				replace(/%connect-src%/g, 'https://*.dropboxapi.com https://api.trello.com').
 				replace(/%frame-src%/g, '').
 					replace(/%style-src%/g, '').
-					replace(/  /g, ' ') + ' frame-ancestors \'self\' https://teams.microsoft.com https://*.cloud.microsoft;';
+					replace(/  /g, ' ') + ' frame-ancestors \'self\' https://teams.microsoft.com https://*.cloud.microsoft https://*.sharepoint.com https://*.sharepoint.de;';
 			console.log('app.diagrams.net:', app_diagrams_net);
 
 			var viewer_diagrams_net = hashes.replace(/%script-src%/g, 'https://www.dropbox.com https://api.trello.com https://app.diagrams.net') +

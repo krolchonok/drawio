@@ -9261,11 +9261,26 @@
 			startLine++;
 		}
 
-		if (startLine > 0)
+		// Removes classDef and comments and stops at any additional mermaid directive
+		var lines2 = [];
+		
+		for (var i = startLine; i < lines.length; i++)
 		{
-			lines = lines.slice(startLine);
-			text = mxUtils.trim(lines.join('\n'));
+			var temp = mxUtils.trim(lines[i]);
+
+			if (temp.substring(0, 2) != '%%' &&
+				temp.substring(0, 9) != 'classDef ')
+			{
+				lines2.push(lines[i]);
+			}
+			else if (temp == 'mermaid')
+			{
+				break;
+			}
 		}
+
+		lines = lines2;
+		text = mxUtils.trim(lines.join('\n'));
 
 		// Removes occasional mermaid tag or other text on first line
 		var type = (lines.length > 1) ? lines[0] : null;
@@ -9290,7 +9305,9 @@
 		}
 
 		EditorUi.debug('EditorUi.extractMermaidDeclaration',
-			'text', [text], 'type', [type], 'lines', lines);
+			'value', [value], 'text', [text], 'type', [type],
+			'startLine', startLine, 'lines', lines,
+			'tokens', tokens);
 		
 		// TODO Is this too restrictive?
 		if (mxUtils.indexOf(EditorUi.mermaidDiagramTypes, type) < 0)
@@ -9529,6 +9546,9 @@
 					})).catch(mxUtils.bind(this, function(e)
 					{
 						this.removeMermaidErrors();
+
+						// Adds result to error
+						e = new Error(e.toString() + '\n\n' + data);
 
 						// LATER: Move to calling code where listener is registered
 						if (typeof mxMermaidToDrawio !== 'undefined')
@@ -12253,6 +12273,23 @@
 			}
 		};
 
+		// Hides current menu when windows are moved or resized
+		var mxWindowSetLocation = mxWindow.prototype.setLocation;
+
+		mxWindow.prototype.setLocation = function(x, y)
+		{
+			mxWindowSetLocation.call(this, x, y);
+			ui.hideCurrentMenu();
+		};
+
+		var mxWindowSetSize = mxWindow.prototype.setSize;
+
+		mxWindow.prototype.setSize = function(width, height)
+		{
+			mxWindowSetSize.call(this, width, height);
+			ui.hideCurrentMenu();
+		};
+		
 		if (!this.editor.chromeless || this.editor.editable)
 		{
 			var theme = Editor.currentTheme;
@@ -14457,9 +14494,15 @@
 	/**
 	 * Writes the given text to the clipboard.
 	 */
-	EditorUi.prototype.writeTextToClipboard = function(text, error)
+	EditorUi.prototype.writeTextToClipboard = function(text, error, done)
 	{
-		navigator.clipboard.writeText(text)['catch'](error);
+		navigator.clipboard.writeText(text)['catch'](error).then(function()
+		{
+			if (done != null)
+			{
+				done();
+			}
+		});
 	};
 
 	/**

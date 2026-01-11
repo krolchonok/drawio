@@ -2843,11 +2843,45 @@ Sidebar.prototype.createItem = function(cells, title, showLabel, showTitle, widt
 };
 
 /**
+ * Disables legacy anchor points on flipped shapes that have no edges connected,
+ * everything else is skipped to match the preview.
+ */
+Sidebar.prototype.prepareCellsForInsert = function(cells)
+{
+	if (cells != null && cells.length > 0)
+	{
+		var model = this.graph.getModel();
+
+		for (var i = 0; i < cells.length; i++)
+		{
+			this.prepareCellsForInsert(model.getChildren(cells[i]));
+
+			if (model.isVertex(cells[i]))
+			{
+				var edges = model.getEdges(cells[i]);
+				var style = this.graph.getCellStyle(cells[i]);
+
+				// Disables legacy anchor points for flipped shapes without edges
+				if ((edges == null || edges.length == 0) && style != null &&
+					(mxUtils.getValue(style, mxConstants.STYLE_FLIPV, 0) == 1 ||
+					mxUtils.getValue(style, mxConstants.STYLE_FLIPH, 0) == 1 ||
+					mxUtils.getValue(style, 'stencilFlipH', 0) == 1 ||
+					mxUtils.getValue(style, 'stencilFlipV', 0) == 1))
+				{
+					this.graph.setCellStyles('legacyAnchorPoints', '0', [cells[i]]);
+				}
+			}
+		}
+	}
+};
+
+/**
  * Creates a drop handler for inserting the given cells.
  */
 Sidebar.prototype.createDropHandler = function(cells, allowSplit, allowCellsInserted, bounds, startEditing, sourceCell)
 {
 	allowCellsInserted = (allowCellsInserted != null) ? allowCellsInserted : true;
+	this.prepareCellsForInsert.call(this, cells);
 	
 	return mxUtils.bind(this, function(graph, evt, target, x, y, force)
 	{

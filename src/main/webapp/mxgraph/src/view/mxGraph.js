@@ -2131,6 +2131,13 @@ mxGraph.prototype.processChange = function(change)
 	{
 		this.removeStateForCell(change.cell);
 	}
+	
+	// Checks if default parent is in model
+	if (this.getDefaultParent() != null &&
+		!this.model.contains(this.getDefaultParent()))
+	{
+		this.setDefaultParent(null);
+	}
 };
 
 /**
