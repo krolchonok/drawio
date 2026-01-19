@@ -1,6 +1,6 @@
 /**
- * Copyright (c) 2006-2015, JGraph Holdings Ltd
- * Copyright (c) 2006-2015, draw.io AG
+ * Copyright (c) 2006-2026, JGraph Holdings Ltd
+ * Copyright (c) 2006-2026, draw.io AG
  */
  var mxConstants =
  {
@@ -1598,6 +1598,18 @@
 	 * for non-curved or 1 for curved. Value is "curved".
 	 */
 	STYLE_CURVED: 'curved',
+
+	/**
+	 * Variable: STYLE_BEZIER
+	 * 
+	 * Defines the key for the bezier style. The type of this value is
+	 * Boolean. It is only applicable for connector shapes. Use 0 (default)
+	 * for non-bezier or 1 for cubic bezier curves. Points are interpreted
+	 * directly as bezier control points: [anchor0, cp1, cp2, anchor1, cp3, cp4, anchor2, ...]
+	 * Total points should be 3n+1 where n is the number of bezier segments.
+	 * Value is "bezier".
+	 */
+	STYLE_BEZIER: 'bezier',
 
 	/**
 	 * Variable: STYLE_ARCSIZE

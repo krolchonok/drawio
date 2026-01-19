@@ -6471,16 +6471,23 @@ Graph.prototype.foldCells = function(collapse, recurse, cells, checkFoldable, ev
 		try
 		{
 			mxGraph.prototype.foldCells.apply(this, arguments);
-			
-			// Resizes all parent stacks if alt is not pressed
-			if (this.layoutManager != null)
+
+			for (var i = 0; i < cells.length; i++)
 			{
-				for (var i = 0; i < cells.length; i++)
+				var state = this.view.getState(cells[i]);
+				var geo = this.getCellGeometry(cells[i]);
+				
+				if (state != null && geo != null)
 				{
-					var state = this.view.getState(cells[i]);
-					var geo = this.getCellGeometry(cells[i]);
-					
-					if (state != null && geo != null)
+					// Brings folded containers to front
+					if (mxUtils.getValue(state.style, 'expandToFront', '0') == '1' &&
+						!this.isCellCollapsed(cells[i]))
+					{
+						this.orderCells(false, [cells[i]]);
+					}
+
+					// Resizes all parent stacks if alt is not pressed
+					if (this.layoutManager != null)
 					{
 						var dx = 0;
 						var dy = 0;

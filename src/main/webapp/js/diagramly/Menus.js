@@ -801,7 +801,8 @@
 
 		editorUi.actions.put('about', new Action('v' + EditorUi.VERSION, function(arg1, evt)
 		{
-			if (editorUi.isOwnGDriveDomain() && mxEvent.isShiftDown(evt))
+			if (mxEvent.isShiftDown(evt) && (EditorUi.isElectronApp ||
+				editorUi.isOwnGDriveDomain()))
 			{
 				if (urlParams['test'] == '1')
 				{

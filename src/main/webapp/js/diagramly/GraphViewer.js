@@ -141,6 +141,8 @@ GraphViewer.prototype.init = function(container, xmlNode, graphConfig)
 		this.graphConfig['allow-zoom-in'] : this.allowZoomIn;
 	this.forceCenter = (this.graphConfig['forceCenter'] != null) ?
 		this.graphConfig['forceCenter'] : this.forceCenter;
+	this.hCenterOnly = (this.graphConfig['hCenterOnly'] != null) ?
+		this.graphConfig['hCenterOnly'] : this.hCenterOnly;
 	this.center = (this.graphConfig['center'] != null) ?
 		this.graphConfig['center'] : (this.center || this.forceCenter);
 	this.checkVisibleState = (this.graphConfig['check-visible-state'] != null) ?
@@ -1005,12 +1007,12 @@ GraphViewer.prototype.addSizeHandler = function()
 
 			if (this.center || !(this.graphConfig.resize != false || container.style.height == ''))
 			{
-				this.graph.center();
+				this.graph.center(true, this.hCenterOnly? false : true);
 			}	
 			
 			this.graph.maxFitScale = null;
 			
-			if (this.graphConfig.resize != false || container.style.height == '')
+			if (this.graphConfig.resize != false || container.style.height == '' || this.hCenterOnly)
 			{
 				this.updateContainerHeight(container, Math.max(this.minHeight,
 					this.graph.getGraphBounds().height +

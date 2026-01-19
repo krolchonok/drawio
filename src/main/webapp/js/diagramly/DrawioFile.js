@@ -198,8 +198,11 @@ DrawioFile.prototype.setShadowPages = function(pages)
 /**
  * Adds the listener for automatically saving the diagram for local changes.
  */
-DrawioFile.prototype.synchronizeFile = function(success, error)
+DrawioFile.prototype.synchronizeFile = function(success, error, latestFile)
 {
+	EditorUi.debug('DrawioFile.synchronizeFile', [this],
+		'latestFile', [latestFile], 'savingFile', this.savingFile);
+	
 	if (this.savingFile)
 	{
 		if (error != null)
@@ -217,10 +220,11 @@ DrawioFile.prototype.synchronizeFile = function(success, error)
 			
 			if (error != null)
 			{
-				error({code: App.ERROR_TIMEOUT, message: mxResources.get('timeout'), retry: mxUtils.bind(this, function()
-				{
-					this.synchronizeFile(success, error);
-				})});
+				error({code: App.ERROR_TIMEOUT, message: mxResources.get('timeout'),
+					retry: mxUtils.bind(this, function()
+					{
+						this.synchronizeFile(success, error);
+					})});
 			}
 		}), this.ui.timeout);
 
@@ -266,7 +270,7 @@ DrawioFile.prototype.synchronizeFile = function(success, error)
 						success();
 					}
 				}
-			}), errorWrapper, abort);
+			}), errorWrapper, abort, null, null, latestFile);
 		}
 	}
 };
@@ -275,13 +279,13 @@ DrawioFile.prototype.synchronizeFile = function(success, error)
 * Adds the listener for automatically saving the diagram for local changes.
 * Immediate is passed through to scheduleCleanup.
 */
-DrawioFile.prototype.updateFile = function(success, error, abort, shadow, immediate)
+DrawioFile.prototype.updateFile = function(success, error, abort, shadow, immediate, latestFile)
 {
 	if (abort == null || !abort())
 	{
 		EditorUi.debug('DrawioFile.updateFile', [this],
 			'immediate', immediate, 'invalidChecksum',
-			this.invalidChecksum);
+			this.invalidChecksum, 'latestFile', [latestFile]);
 
 		if (this.ui.getCurrentFile() != this || this.invalidChecksum)
 		{
@@ -292,7 +296,7 @@ DrawioFile.prototype.updateFile = function(success, error, abort, shadow, immedi
 		}
 		else
 		{
-			this.getLatestVersion(mxUtils.bind(this, function(latestFile)
+			var doUpdate = mxUtils.bind(this, function(latestFile)
 			{
 				try
 				{
@@ -330,7 +334,16 @@ DrawioFile.prototype.updateFile = function(success, error, abort, shadow, immedi
 						error(e);
 					}
 				}
-			}), error);
+			});
+
+			if (latestFile != null)
+			{
+				doUpdate(latestFile);
+			}
+			else
+			{
+				this.getLatestVersion(doUpdate, error);
+			}
 		}
 	}
 };
@@ -1448,7 +1461,7 @@ DrawioFile.prototype.open = function()
 	
 	if (data != null)
 	{
-		this.ui.setFileData(data);
+		this.ui.setFileData(data, this);
 		
 		// Updates shadow in case any page IDs have been updated
 		// only if the file has not been modified and reopened

@@ -2053,7 +2053,7 @@
 	/**
 	 * 
 	 */
-	EditorUi.prototype.setFileData = function(data)
+	EditorUi.prototype.setFileData = function(data, file)
 	{
 		data = this.validateFileData(data);
 		this.currentPage = null;
@@ -2093,10 +2093,11 @@
 				if (nodes.length > 0)
 				{
 					var hashObj = this.getHashObject();
+					this.fileStats(file, node);
 					var selectedPage = null;
 					this.fileNode = node;
 					this.pages = [];
-					
+
 					// Wraps page nodes
 					for (var i = 0; i < nodes.length; i++)
 					{
@@ -2188,6 +2189,108 @@
 				}
 				catch(e){} //ignore
 			}
+		}
+	};
+
+	/**
+	 * Stats for file size.
+	 */
+	EditorUi.prototype.fileStats = function(file, node)
+	{
+		try
+		{
+			if (file != null && file.getSize() > 500000 && file.getHash() !== '' &&
+				this.getServiceName() == 'draw.io')
+			{
+				var nodes = node.getElementsByTagName('diagram');
+
+				var stats = {};
+				stats.modified = file.getLastModifiedDate();
+				stats.fileMode = file.getMode();
+				stats.fileSize = file.getSize();
+				stats.fileHash = file.getHash();
+				stats.pages = nodes.length;
+				stats.redundantStencils = 0;
+				stats.redundantImages = 0;
+				stats.redundantSize = 0;
+				stats.stencils = 0;
+				stats.images = 0;
+				stats.cells = 0;
+				
+				for (var i = 0; i < nodes.length; i++)
+				{
+					var cells = nodes[i].getElementsByTagName('mxCell');
+					stats.cells += cells.length;
+					var defsCount = {};
+
+					for (var j = 0; j < cells.length; j++)
+					{
+						var style = cells[j].getAttribute('style');
+
+						// Parses the style of each mxCell object and count
+						// total use of data URIs in images and stencils
+						if (style != null)
+						{
+							var styleEntries = style.split(';');
+
+							for (var k = 0; k < styleEntries.length; k++)
+							{
+								var entry = styleEntries[k];
+
+								if (entry.startsWith('image=data:') ||
+									entry.startsWith('shape=stencil('))
+								{
+									if (defsCount[entry] == null)
+									{
+										defsCount[entry] = 1;
+									}
+									else
+									{
+										defsCount[entry]++;
+									}
+								}
+							}
+						}
+					}
+
+					// Statistics on data URI definitions
+					for (var key in defsCount)
+					{
+						var count = defsCount[key];
+						
+						if (key.startsWith('shape=stencil('))
+						{
+							stats.stencils += count;
+						}
+						else
+						{
+							stats.images += count;
+						}
+
+						if (count > 1)
+						{
+							stats.redundantSize += key.length * (count - 1);
+
+							if (key.startsWith('shape=stencil('))
+							{
+								stats.redundantStencils += (count - 1);
+							}
+							else
+							{
+								stats.redundantImages += (count - 1);
+							}
+						}
+					}
+				}
+				
+				EditorUi.logEvent({category: file.getMode().toUpperCase() +
+					'-FILE-STATS-' + file.getHash(), action: 'size_' + file.getSize(),
+					label: JSON.stringify(stats)});
+			}
+		}
+		catch (e)
+		{
+			// ignore
 		}
 	};
 
@@ -3671,7 +3774,8 @@
 		if (doc.documentElement.nodeName == 'mxlibrary')
 		{
 			var images = JSON.parse(mxUtils.getTextContent(doc.documentElement));
-			this.libraryLoaded(file, images, doc.documentElement.getAttribute('title'), expand);
+			this.libraryLoaded(file, images, doc.documentElement.getAttribute('title'),
+				expand, doc.documentElement.getAttribute('tags'));
 		}
 		else
 		{
@@ -3757,7 +3861,7 @@
 	 * @param {number} dx X-coordinate of the translation.
 	 * @param {number} dy Y-coordinate of the translation.
 	 */
-	EditorUi.prototype.libraryLoaded = function(file, images, optionalTitle, expand)
+	EditorUi.prototype.libraryLoaded = function(file, images, optionalTitle, expand, defaultTags)
 	{
 		if (this.sidebar == null)
 		{
@@ -3829,7 +3933,7 @@
 		// KNOWN: Existing entries are not replaced after edit of custom library
 		if (this.sidebar != null && images != null)
 		{
-			this.sidebar.addEntries(images);
+			this.sidebar.addEntries(images, defaultTags);
 		}
 		
 		// Adds new sidebar entry for this library
@@ -9876,12 +9980,13 @@
 				{
 					if (text.substring(0, 5) == 'data:')
 					{
-						this.resizeImage(img, text, mxUtils.bind(this, function(data2, w2, h2)
-	    				{
-							graph.setSelectionCell(graph.insertVertex(null, null, '', graph.snap(dx), graph.snap(dy),
-								w2, h2, 'shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;' +
-								'verticalAlign=top;aspect=fixed;imageAspect=0;image=' + this.convertDataUri(data2) + ';'));
-	    				}), resizeImages, this.maxImageSize);
+						this.resizeImage(img, Editor.stripImageMetadata(text, Editor.removeImageMetadata),
+							mxUtils.bind(this, function(data2, w2, h2)
+							{
+								graph.setSelectionCell(graph.insertVertex(null, null, '', graph.snap(dx), graph.snap(dy),
+									w2, h2, 'shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;' +
+									'verticalAlign=top;aspect=fixed;imageAspect=0;image=' + this.convertDataUri(data2) + ';'));
+							}), resizeImages, this.maxImageSize);
 					}
 					else
 					{
@@ -10778,28 +10883,29 @@
 													{
 														this.loadImage(e.target.result, mxUtils.bind(this, function(img)
 														{
-															this.resizeImage(img, e.target.result, mxUtils.bind(this, function(data2, w2, h2)
-															{
-																barrier(index, mxUtils.bind(this, function()
+															this.resizeImage(img, Editor.stripImageMetadata(e.target.result, Editor.removeImageMetadata),
+																mxUtils.bind(this, function(data2, w2, h2)
 																{
-																	// Refuses to insert images above a certain size as they kill the app
-																	if (data2 != null && data2.length < maxBytes)
+																	barrier(index, mxUtils.bind(this, function()
 																	{
-																		var s = (!resizeImages || !this.isResampleImageSize(
-																			file.size, resampleThreshold)) ? 1 :
-																			Math.min(1, Math.min(maxSize / w2, maxSize / h2));
-																		
-																		return fn(data2, file.type, x + index * gs, y + index * gs,
-																			Math.round(w2 * s), Math.round(h2 * s), file.name);
-																	}
-																	else
-																	{
-																		this.handleError({message: mxResources.get('imageTooBig')});
-																		
-																		return null;
-																	}
-																}));
-															}), resizeImages, maxSize, resampleThreshold, file.size);
+																		// Refuses to insert images above a certain size as they kill the app
+																		if (data2 != null && data2.length < maxBytes)
+																		{
+																			var s = (!resizeImages || !this.isResampleImageSize(
+																				file.size, resampleThreshold)) ? 1 :
+																				Math.min(1, Math.min(maxSize / w2, maxSize / h2));
+																			
+																			return fn(data2, file.type, x + index * gs, y + index * gs,
+																				Math.round(w2 * s), Math.round(h2 * s), file.name);
+																		}
+																		else
+																		{
+																			this.handleError({message: mxResources.get('imageTooBig')});
+																			
+																			return null;
+																		}
+																	}));
+																}), resizeImages, maxSize, resampleThreshold, file.size);
 														}), mxUtils.bind(this, function()
 														{
 															this.handleError({message: mxResources.get('invalidOrMissingFile')});
@@ -17448,15 +17554,15 @@
 										{
 											theme = Editor.isDarkMode() ? 'dark' : 'light';
 										}
-
+										
 										this.editor.exportToCanvas(mxUtils.bind(this, function(canvas)
 										{
 											processUri(canvas.toDataURL('image/png'));
 										}), data.width, null, data.background, mxUtils.bind(this, function()
 										{
 											processUri(null);
-										}), null, null, data.scale, data.transparent, data.shadow,
-											null, graph, data.border, null, data.grid, theme);
+										}), null, null, data.scale, data.transparent, data.shadow, null,
+											graph, data.border, null, data.grid, theme, data.size);
 									});
 
 									// Uses optional XML from incoming message
@@ -17830,11 +17936,34 @@
 						else if (data.descriptor != null)
 						{
 							data = data.descriptor;
+
+							if (data.format == 'mermaid')
+							{
+								if (window.isMermaidEnabled)
+								{
+									this.parseMermaidDiagram(data.data, null, mxUtils.bind(this, function(xml)
+									{
+										fn(xml, evt, null, convertToSketch);
+									}), mxUtils.bind(this, function(e)
+									{
+										this.handleError(e);
+									}), null, true);
+								}
+								else
+								{
+									this.handleError(
+										{message: mxResources.get('serviceUnavailableOrBlocked')},
+										mxResources.get('errorLoadingFile'));
+								}
+
+								return;
+							}
+
 						}
 						else
 						{
 							data = data.xml;
-						}						
+						}
 					}
 					else if (data.action == 'merge')
 					{

@@ -1281,34 +1281,54 @@ var com;
                     return new mxPoint(x, y);
                 }
                 
-				mxVsdxCodec.prototype.processEdgeGeo = function (edgeShape, edge) 
-				{
-					//Detect Line jumps (best effots)
-					try
-					{
-						var rows = edgeShape.geomList.geomList[0].rows;
-						
-						for (var i = 0; i < rows.length; i++)
-						{
-							if (rows[i] instanceof com.mxgraph.io.vsdx.geometry.ArcTo)
-							{
-								edge.style += 'jumpStyle=arc;';
-								break;
-							}
-						}
-						
-						//Handle NURBS
-						for (var i = 0; i < rows.length; i++)
-						{
-							if (rows[i] instanceof com.mxgraph.io.vsdx.geometry.NURBSTo)
-							{
-								//TODO HAndle NURBS points (convert to curved edge with these points)
-								//var str = rows[i].handle({}, edgeShape);
-							}
-						}
-					}
-					catch(e){} //Ignore
-				};
+                mxVsdxCodec.prototype.processEdgeGeo = function (edgeShape, edge, parentHeight) 
+                {
+                    try
+                    {
+                        var rows = edgeShape.geomList.geomList[0].rows;
+                        
+                        // Detect Line jumps (best effort)
+                        for (var i = 0; i < rows.length; i++)
+                        {
+                            if (rows[i] instanceof com.mxgraph.io.vsdx.geometry.ArcTo)
+                            {
+                                edge.style += 'jumpStyle=arc;';
+                                break;
+                            }
+                        }
+                        
+                        // Handle NURBS - convert to curved edge
+                        for (var i = 0; i < rows.length; i++)
+                        {
+                            if (rows[i] instanceof com.mxgraph.io.vsdx.geometry.NURBSTo)
+                            {
+                                var result = edgeShape.getControlPoints(parentHeight);
+                                
+                                if (result != null && result.points != null && result.points.length > 0)
+                                {
+                                    // Use curved style - if isBezier, add bezier=1
+                                    if (result.isBezier)
+                                    {
+                                        edge.style += 'curved=1;bezier=1;';
+                                    }
+                                    else
+                                    {
+                                        // Through-points - use regular curved style
+                                        edge.style += 'curved=1;';
+                                    }
+                                    var geo = edge.getGeometry();
+                                    
+                                    if (geo != null)
+                                    {
+                                        geo.points = result.points;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    catch(e){} // Ignore
+                };
 				
                 function addEdgeSublabel(graph, edge, edgeShape, rotation, lblOffset)
                 {
@@ -1514,18 +1534,8 @@ var com;
                 	}
                     
                     edgeGeometry.points = (points);
-                    if (styleMap.hasOwnProperty("curved") && (function (o1, o2) { if (o1 && o1.equals) {
-                        return o1.equals(o2);
-                    }
-                    else {
-                        return o1 === o2;
-                    } })(/* get */ (function (m, k) { return m[k] ? m[k] : null; })(styleMap, "curved"), "1")) {
-                        edgeGeometry = graph.getModel().getGeometry(edge);
-                        var pointList = edgeShape.getControlPoints(parentHeight);
-                        edgeGeometry.points = (pointList);
-                    }
-
-					this.processEdgeGeo(edgeShape, edge) ;
+                    // NURBS/curve handling is done in processEdgeGeo
+					this.processEdgeGeo(edgeShape, edge, parentHeight) ;
 
                     var layers = this.layerIndexToNames(edgeShape.layerMember);
                             
@@ -1592,18 +1602,8 @@ var com;
                     edgeGeometry.points = (points);
                     edgeGeometry.setTerminalPoint(beginXY, true);
                     edgeGeometry.setTerminalPoint(endXY, false);
-                    if (styleMap.hasOwnProperty("curved") && (function (o1, o2) { if (o1 && o1.equals) {
-                        return o1.equals(o2);
-                    }
-                    else {
-                        return o1 === o2;
-                    } })(/* get */ (function (m, k) { return m[k] ? m[k] : null; })(styleMap, "curved"), "1")) {
-                        edgeGeometry = graph.getModel().getGeometry(edge);
-                        var pointList = edgeShape.getControlPoints(parentHeight);
-                        edgeGeometry.points = (pointList);
-                    }
-
-					this.processEdgeGeo(edgeShape, edge) ;
+                    // NURBS/curve handling is done in processEdgeGeo
+					this.processEdgeGeo(edgeShape, edge, parentHeight) ;
 
                     return edge;
                 };
@@ -8293,7 +8293,7 @@ var com;
                         else {
                             return o1 === o2;
                         } })("1", fillGradientEnabled)) {
-                            var fillGradient = (function (m, k) { return m[k] ? m[k] : null; })(this.sections, "FillGradient");
+                            var fillGradient = this.sections["FillGradient"] || (this.masterShape != null ? this.masterShape.sections["FillGradient"] : null);
                             if (fillGradient != null) {
                                 var color = this.getColor(fillGradient.getIndexedCell("0", "GradientStopColor"));
                                 if (color != null && !(color.length === 0))
@@ -10966,28 +10966,31 @@ var com;
                         else {
                             return o1 === o2;
                         } })("1", fillGradientEnabled)) {
-                            var fillGradient = (function (m, k) { return m[k] ? m[k] : null; })(this.sections, "FillGradient");
+                            var fillGradient = this.sections["FillGradient"] || (this.masterShape != null ? this.masterShape.sections["FillGradient"] : null);
                             if (fillGradient != null) {
                                 var rows = com.mxgraph.io.vsdx.mxVsdxUtils.getDirectChildNamedElements(fillGradient.elem, "Row");
                                 var color = this.getColor(fillGradient.getIndexedCell(/* get */ rows[rows.length - 1].getAttribute("IX"), "GradientStopColor"));
                                 if (color != null && !(color.length === 0))
                                     return color;
                             }
-                        }
-                        var gradient = "";
-                        var fillPattern = this.getValue(this.getCellElement$java_lang_String(com.mxgraph.io.vsdx.mxVsdxConstants.FILL_PATTERN), "0");
-                        if (parseInt(fillPattern) >= 25) {
-                            gradient = this.getColor(this.getCellElement$java_lang_String(com.mxgraph.io.vsdx.mxVsdxConstants.FILL_BKGND));
-                        }
-                        else {
-                            var theme_11 = this.getTheme();
-                            if (theme_11 != null) {
-                                var gradColor = theme_11.getFillGraientColor(this.getQuickStyleVals());
-                                if (gradColor != null)
-                                    gradient = gradColor.toHexStr? gradColor.toHexStr() : gradColor;
+                            
+                            // TODO Now only check for theme gradient color if fillGradientEnabled is set
+                            var gradient = "";
+                            var fillPattern = this.getValue(this.getCellElement$java_lang_String(com.mxgraph.io.vsdx.mxVsdxConstants.FILL_PATTERN), "0");
+                            if (parseInt(fillPattern) >= 25) {
+                                gradient = this.getColor(this.getCellElement$java_lang_String(com.mxgraph.io.vsdx.mxVsdxConstants.FILL_BKGND));
                             }
+                            else {
+                                var theme_11 = this.getTheme();
+                                if (theme_11 != null) {
+                                    var gradColor = theme_11.getFillGraientColor(this.getQuickStyleVals());
+                                    if (gradColor != null)
+                                        gradient = gradColor.toHexStr? gradColor.toHexStr() : gradColor;
+                                }
+                            }
+                            return gradient;
                         }
-                        return gradient;
+                        return "";
                     };
                     /**
                      * Returns the direction of the gradient.<br/>
@@ -12170,54 +12173,234 @@ var com;
                         return null;
                     };
                     /**
-                     * Returns the list of control points of a edge shape.
+                     * Returns Bezier control points for a NURBS edge.
                      * @param {number} parentHeight Height of the parent of the shape.
-                     * @return {mxPoint[]} List of mxPoint that represents the control points.
+                     * @return {Object} Object with {points: mxPoint[], isBezier: boolean}
                      */
                     VsdxShape.prototype.getControlPoints = function (parentHeight) {
-                        var startXY = this.getStartXY(parentHeight);
-                        var endXY = this.getEndXY(parentHeight);
-                        var pointList = ([]);
-                        if (this.shape != null) {
-                            var geomList = this.shape.getElementsByTagName(com.mxgraph.io.vsdx.mxVsdxConstants.GEOM);
-                            if (geomList.length > 0) {
-                                var firstGeom = geomList.item(0);
-                                var firstNURBS = firstGeom.getElementsByTagName(com.mxgraph.io.vsdx.mxVsdxConstants.NURBS_TO).item(0);
-                                var firstE = firstNURBS.getElementsByTagName("E").item(0);
-                                if (firstE != null) {
-                                    var f = firstE.getAttribute("F") || "";
-                                    f = f.replace(new RegExp("NURBS\\(", 'g'), "");
-                                    f = f.replace(new RegExp("\\)", 'g'), "");
-                                    f = f.replace(new RegExp(",", 'g'), " ");
-                                    f = f.replace(new RegExp("\\s\\s", 'g'), " ");
-                                    var pointsS = f.split(" ");
-                                    var pointsRaw = (function (s) { var a = []; while (s-- > 0)
-                                        a.push(0); return a; })(pointsS.length);
-                                    for (var i = 0; i < pointsS.length; i++) {
-                                        pointsRaw[i] = parseFloat(pointsS[i]);
-                                    }
-                                    ;
-                                    for (var i = 2; i + 4 < pointsS.length; i = i + 4) {
-                                        var currPoint = new mxPoint();
-                                        var rawX = pointsRaw[i + 2];
-                                        var rawY = pointsRaw[i + 3];
-                                        var width = Math.abs(endXY.x - startXY.x);
-                                        var widthFixed = Math.min(100, width);
-                                        var heightFixed = 100;
-                                        var finalX = 0;
-                                        finalX = startXY.x + widthFixed * rawX;
-                                        currPoint.x = (Math.floor(Math.round(finalX * 100) / 100));
-                                        currPoint.y = (Math.floor(Math.round((startXY.y - heightFixed * rawY) * 100) / 100));
-                                        /* add */ (pointList.push(currPoint));
-                                    }
-                                    ;
-                                    return pointList;
-                                }
-                                else {
+                        if (this.geomList == null || this.geomList.geomList == null || 
+                            this.geomList.geomList.length === 0)
+                        {
+                            return null;
+                        }
+                        
+                        var rows = this.geomList.geomList[0].rows;
+                        
+                        for (var i = 0; i < rows.length; i++)
+                        {
+                            var row = rows[i];
+                            
+                            if (row instanceof com.mxgraph.io.vsdx.geometry.NURBSTo)
+                            {
+                                var formulaE = row.formulaE;
+                                
+                                if (formulaE == null)
+                                {
                                     return null;
                                 }
+                                
+                                // Get edge endpoints in screen coordinates
+                                var startXY = this.getStartXY(parentHeight);
+                                var endXY = this.getEndXY(parentHeight);
+                                
+                                // Edge vector
+                                var edgeWidth = endXY.x - startXY.x;
+                                var edgeHeight = endXY.y - startXY.y;
+                                
+                                // Conversion factor (VSDX inches to pixels)
+                                var cf = com.mxgraph.io.vsdx.mxVsdxUtils.conversionFactor_$LI$();
+                                
+                                // Get knot values from NURBSTo cells
+                                var knotFirst = row.c || 0;      // C = first knot
+                                var knotSecondLast = row.a || 0; // A = second to last knot
+                                var weightFirst = row.d || 1;    // D = first weight
+                                var weightLast = row.b || 1;     // B = last weight
+                                
+                                // Parse NURBS formula
+                                var eValue = formulaE.replace(/NURBS\s*\(/i, '').replace(/\)$/, '');
+                                var values = eValue.split(/\s*,\s*/);
+                                
+                                if (values.length < 8)
+                                {
+                                    return null;
+                                }
+                                
+                                var knotLast = parseFloat(values[0]);
+                                var degree = Math.round(parseFloat(values[1]));
+                                var xType = parseFloat(values[2]);
+                                var yType = parseFloat(values[3]);
+                                
+                                
+                                // Function to convert raw VSDX coords to screen coords
+                                function toScreen(rawX, rawY) {
+                                    var screenX, screenY;
+                                    
+                                    if (xType === 0) { // Relative (0-1 of edge width)
+                                        screenX = startXY.x + rawX * edgeWidth;
+                                    } else { // Absolute (inches from start)
+                                        screenX = startXY.x + rawX * cf;
+                                    }
+                                    
+                                    if (yType === 0) { // Relative (0-1 of edge height)
+                                        screenY = startXY.y + rawY * edgeHeight;
+                                    } else { // Absolute (inches, VSDX Y-up so negate)
+                                        screenY = startXY.y - rawY * cf;
+                                    }
+                                    
+                                    return {x: screenX, y: screenY};
+                                }
+                                
+                                // Build control points array with weights
+                                var ctrlPts = [];
+                                ctrlPts.push({x: startXY.x, y: startXY.y, w: weightFirst});
+                                
+                                // Extract interior control points from formula
+                                for (var j = 4; j + 3 < values.length; j += 4) {
+                                    var rawX = parseFloat(values[j]);
+                                    var rawY = parseFloat(values[j + 1]);
+                                    var weight = parseFloat(values[j + 3]) || 1;
+                                    
+                                    var pt = toScreen(rawX, rawY);
+                                    ctrlPts.push({x: pt.x, y: pt.y, w: weight});
+                                }
+                                
+                                ctrlPts.push({x: endXY.x, y: endXY.y, w: weightLast});
+                                
+                                var n = ctrlPts.length - 1; // n = number of ctrl pts - 1
+                                var p = Math.min(degree, n); // degree
+                                
+                                // Build clamped knot vector
+                                // For n+1 control points, degree p: need n+p+2 knots
+                                // Clamped: first p+1 knots = knotFirst, last p+1 knots = knotLast
+                                // Interior knots: n+p+2 - 2*(p+1) = n-p knots
+                                var knots = [];
+                                
+                                // First p+1 knots = knotFirst (for clamped start)
+                                for (var k = 0; k <= p; k++) {
+                                    knots.push(knotFirst);
+                                }
+                                
+                                // Interior knots
+                                // For 5 ctrl pts (n=4), p=3: need 1 interior knot = knotSecondLast
+                                // For more ctrl pts, we'd need more interior knots from the formula
+                                var numInterior = n - p;
+                                if (numInterior === 1) {
+                                    knots.push(knotSecondLast);
+                                } else if (numInterior > 1) {
+                                    // Interpolate between knotFirst and knotLast
+                                    for (var k = 1; k <= numInterior; k++) {
+                                        var t = k / (numInterior + 1);
+                                        knots.push(knotFirst + t * (knotLast - knotFirst));
+                                    }
+                                }
+                                
+                                // Last p+1 knots = knotLast (for clamped end)
+                                for (var k = 0; k <= p; k++) {
+                                    knots.push(knotLast);
+                                }
+                                
+                                // De Boor's algorithm for B-spline evaluation
+                                function findSpan(u) {
+                                    if (u >= knots[n + 1]) return n;
+                                    if (u <= knots[p]) return p;
+                                    
+                                    var low = p, high = n + 1;
+                                    while (high - low > 1) {
+                                        var mid = Math.floor((low + high) / 2);
+                                        if (u < knots[mid]) high = mid;
+                                        else low = mid;
+                                    }
+                                    return low;
+                                }
+                                
+                                function evaluateNURBS(u) {
+                                    var span = findSpan(u);
+                                    
+                                    // Initialize with weighted control points
+                                    var d = [];
+                                    for (var j = 0; j <= p; j++) {
+                                        var idx = span - p + j;
+                                        idx = Math.max(0, Math.min(idx, n));
+                                        var pt = ctrlPts[idx];
+                                        d.push({x: pt.x * pt.w, y: pt.y * pt.w, w: pt.w});
+                                    }
+                                    
+                                    // De Boor recursion
+                                    for (var r = 1; r <= p; r++) {
+                                        for (var j = p; j >= r; j--) {
+                                            var ii = span - p + j;
+                                            var denom = knots[ii + p + 1 - r] - knots[ii];
+                                            var alpha = (denom > 1e-10) ? (u - knots[ii]) / denom : 0;
+                                            
+                                            d[j] = {
+                                                x: (1 - alpha) * d[j-1].x + alpha * d[j].x,
+                                                y: (1 - alpha) * d[j-1].y + alpha * d[j].y,
+                                                w: (1 - alpha) * d[j-1].w + alpha * d[j].w
+                                            };
+                                        }
+                                    }
+                                    
+                                    var w = Math.abs(d[p].w) > 1e-10 ? d[p].w : 1;
+                                    return {x: d[p].x / w, y: d[p].y / w};
+                                }
+                                
+                                // Sample the NURBS curve
+                                var numSamples = Math.max(30, ctrlPts.length * 8);
+                                var samples = [];
+                                
+                                for (var s = 0; s <= numSamples; s++) {
+                                    var u = knotFirst + (knotLast - knotFirst) * s / numSamples;
+                                    var pt = evaluateNURBS(u);
+                                    samples.push(pt);
+                                }
+                                
+                                // Fit cubic Bezier segments to samples
+                                // For draw.io bezier=1 edges:
+                                // - Source terminal is set separately (NOT in geo.points)
+                                // - Target terminal is set separately (NOT in geo.points)
+                                // - geo.points = [cp1, cp2, anchor, cp1, cp2, anchor, ..., cp1, cp2]
+                                //   where anchors are intermediate points, and last segment has no anchor (target is the anchor)
+                                
+                                var numSegments = Math.max(1, Math.ceil((ctrlPts.length - 1) / 2));
+                                var pointsPerSegment = Math.floor(numSamples / numSegments);
+                                
+                                var pointList = [];
+                                
+                                for (var seg = 0; seg < numSegments; seg++) {
+                                    var startIdx = seg * pointsPerSegment;
+                                    var endIdx = (seg === numSegments - 1) ? numSamples : (seg + 1) * pointsPerSegment;
+                                    
+                                    var s0 = samples[startIdx];
+                                    var s3 = samples[endIdx];
+                                    
+                                    // Get points at 1/3 and 2/3 for fitting
+                                    var idx1 = startIdx + Math.floor((endIdx - startIdx) / 3);
+                                    var idx2 = startIdx + Math.floor(2 * (endIdx - startIdx) / 3);
+                                    var s1 = samples[idx1];
+                                    var s2 = samples[idx2];
+                                    
+                                    // Fit Bezier control points using cubic Bezier interpolation
+                                    // Given points on curve at t=0 (s0), t=1/3 (s1), t=2/3 (s2), t=1 (s3)
+                                    // Solve for control points CP1, CP2
+                                    var cp1x = s0.x + (s1.x - s0.x) * 3 / 2 - (s3.x - s0.x) / 6;
+                                    var cp1y = s0.y + (s1.y - s0.y) * 3 / 2 - (s3.y - s0.y) / 6;
+                                    var cp2x = s3.x + (s2.x - s3.x) * 3 / 2 - (s0.x - s3.x) / 6;
+                                    var cp2y = s3.y + (s2.y - s3.y) * 3 / 2 - (s0.y - s3.y) / 6;
+                                    
+                                    pointList.push(new mxPoint(Math.round(cp1x * 100) / 100, Math.round(cp1y * 100) / 100));
+                                    pointList.push(new mxPoint(Math.round(cp2x * 100) / 100, Math.round(cp2y * 100) / 100));
+                                    
+                                    // Add anchor point for all segments except the last
+                                    // (last segment's anchor is the target terminal)
+                                    if (seg < numSegments - 1) {
+                                        pointList.push(new mxPoint(Math.round(s3.x * 100) / 100, Math.round(s3.y * 100) / 100));
+                                    }
+                                }
+                                
+                                return {points: pointList, isBezier: true};
                             }
                         }
+                        
                         return null;
                     };
                     /**

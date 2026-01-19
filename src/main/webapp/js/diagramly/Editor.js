@@ -1,6 +1,6 @@
 /**
- * Copyright (c) 2006-2017, JGraph Holdings Ltd
- * Copyright (c) 2006-2017, draw.io AG
+ * Copyright (c) 2006-2026, JGraph Holdings Ltd
+ * Copyright (c) 2006-2026, draw.io AG
  */
 (function()
 {
@@ -650,6 +650,10 @@
 	Editor.commonEdgeProperties = [
         {type: 'separator'},
         {name: 'arcSize', dispName: 'Arc Size', type: 'float', min:0, defVal: mxConstants.LINE_ARCSIZE},
+        {name: 'bezier', dispName: 'Bezier', type: 'bool', defVal: false, isVisible: function(state)
+        {
+    		return mxUtils.getValue(state.style, 'curved', '0') == '1';
+        }},
         {name: 'sourcePortConstraint', dispName: 'Source Constraint', type: 'enum', defVal: 'none',
         	enumList: [{val: 'none', dispName: 'None'}, {val: 'north', dispName: 'North'}, {val: 'east', dispName: 'East'}, {val: 'south', dispName: 'South'}, {val: 'west', dispName: 'West'}]
         },
@@ -872,6 +876,10 @@
 				state.style['pointerEvents'] != null);
         }},
         {name: 'moveCells', dispName: 'Move Cells on Fold', type: 'bool', defVal: false, isVisible: function(state, format)
+        {
+        	return state.vertices.length > 0 && format.editorUi.editor.graph.isContainer(state.vertices[0]);
+        }},
+		{name: 'expandToFront', dispName: 'Expand to Front', type: 'bool', defVal: false, isVisible: function(state, format)
         {
         	return state.vertices.length > 0 && format.editorUi.editor.graph.isContainer(state.vertices[0]);
         }},
@@ -2838,6 +2846,11 @@
 			if (config.restrictExport != null)
 			{
 				DrawioFile.RESTRICT_EXPORT = config.restrictExport;
+			}
+
+			if (config.removeImageMetadata != null)
+			{
+				Editor.removeImageMetadata = config.removeImageMetadata;
 			}
 
 			if (config.defaultTextStyle != null)

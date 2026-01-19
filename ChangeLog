@@ -1,3 +1,24 @@
+15-JAN-2026: 29.3.2
+
+- Adds shift+click on app version in desktop to enable debug mode
+- Adds additional check for external change detection [2312]
+- Adds bezier style option for curved edges
+- [conf cloud] Fixed extra whitespace when centering is enabled [DID-17409]
+- Adds support for optional tags attribute in mxlibrary node
+- Changes beizer to use standard cubic control point positions
+- Adds initial NURBS support [jgraph/drawio#2104]
+
+13-JAN-2026: 29.3.1
+
+- Fixes import of cropped SVG images [jgraph/drawio#5015]
+- Adds optional size parameter for export action [jgraph/drawio#4536]
+- Adds Mermaid support for load action [jgraph/drawio#5215]
+- Removes metadata from JPEG/PNG images [AMS-49114]
+- Adds removeImageMetadata config switch
+- Fixes check for image type in stripImageMetadata
+- Adds optional cell style compression for images and stencils in model codec
+- Adds file size stats
+
 08-JAN-2026: 29.3.0
 
 - Fixes possible NPE

@@ -1196,10 +1196,10 @@
 								this.addPalette(entry.id + '.' + k, this.editorUi.getResource(lib.title),
 									false, mxUtils.bind(this, function(content, title)
 								{
-									var dataLoaded = mxUtils.bind(this, function(images)
+									var dataLoaded = mxUtils.bind(this, function(images, defaultTags)
 									{
 										this.setCurrentSearchEntryLibrary(entry.id, entry.id + '.' + k);
-										this.addEntries(images);
+										this.addEntries(images, defaultTags);
 										this.setCurrentSearchEntryLibrary();
 										this.editorUi.addLibraryEntries(images, content);
 									});
@@ -1228,7 +1228,7 @@
 											if (doc.documentElement.nodeName == 'mxlibrary')
 											{
 												var images = JSON.parse(mxUtils.getTextContent(doc.documentElement));
-												dataLoaded(images);
+												dataLoaded(images, doc.documentElement.getAttribute('tags'));
 											}
 											else
 											{
@@ -1279,7 +1279,7 @@
 											if (doc.documentElement.nodeName == 'mxlibrary')
 											{
 												data = JSON.parse(mxUtils.getTextContent(doc.documentElement));
-												this.addEntries(data);
+												this.addEntries(data, doc.documentElement.getAttribute('tags'));
 												barrier();
 											}
 											else

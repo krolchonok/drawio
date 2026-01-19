@@ -338,6 +338,11 @@ Editor.transitionDelay = 0.1;
 Editor.pageSizeUnit = mxConstants.INCHES;
 
 /**
+ * Whether to remove EXIF metadata from pasted images. Default is true.
+ */
+Editor.removeImageMetadata = true;
+
+/**
  * Returns the current state of the dark mode.
  */
 Editor.isDarkMode = function()
@@ -354,6 +359,15 @@ Editor.isPngDataUrl = function(url)
 };
 
 /**
+ * Returns true if the given URL is a JPEG data URL.
+ */
+Editor.isJpgDataUrl = function(url)
+{
+	return url != null && (url.substring(0, 15) == 'data:image/jpg;' ||
+		url.substring(0, 16) == 'data:image/jpeg;');
+};
+
+/**
  * Returns true if the given binary data is a PNG file.
  */
 Editor.isPngData = function(data)
@@ -361,6 +375,187 @@ Editor.isPngData = function(data)
 	return data.length > 8 && data.charCodeAt(0) == 137 && data.charCodeAt(1) == 80 &&
 		data.charCodeAt(2) == 78 && data.charCodeAt(3) == 71 && data.charCodeAt(4) == 13 &&
 		data.charCodeAt(5) == 10 && data.charCodeAt(6) == 26 && data.charCodeAt(7) == 10;
+};
+
+/**
+ * Returns true if the given binary data is a JPEG file.
+ */
+Editor.isJpgData = function(data)
+{
+	return data.length > 2 && data.charCodeAt(0) == 255 && data.charCodeAt(1) == 216;
+};
+
+/**
+ * Removes EXIF metadata from the given JPEG data URI and returns the cleaned data URI.
+ */
+Editor.stripImageMetadata = function(dataUri, enabled)
+{
+	if (dataUri != null && enabled &&
+		(Editor.isJpgDataUrl(dataUri) ||
+		Editor.isPngDataUrl(dataUri)))
+	{
+		var comma = dataUri.indexOf(',') + 1;
+		var base64 = dataUri.substring(comma);
+		
+		// Workaround for invalid character error in Safari
+		var binary = (window.atob && !mxClient.IS_SF) ?
+			atob(base64) : Base64.decode(base64, true);
+		var buffer = new ArrayBuffer(binary.length);
+
+		// Ready bytes into buffer
+		var bytes = new Uint8Array(buffer);
+		
+		for (var i = 0; i < binary.length; i++)
+		{
+			bytes[i] = binary.charCodeAt(i);
+		}
+
+		// Removes metadata for supported formats
+		var result = null;
+
+		if (Editor.isJpgData(binary))
+		{
+			result = Editor.stripJpgMetadata(buffer);
+		}
+		else if (Editor.isPngData(binary))
+		{
+			result = Editor.stripPngMetadata(buffer);
+		}
+
+		// Converts back to Base64
+		if (result != null)
+		{
+			var newBase64 = '';
+
+			for (var i = 0; i < result.length; i++)
+			{
+				newBase64 += String.fromCharCode(result[i]);
+			}
+
+			dataUri = dataUri.substring(0, comma) + btoa(newBase64);
+		}
+	}
+
+	return dataUri;
+};
+
+/**
+ * Removes EXIF metadata from the given JPEG data.
+ */
+Editor.stripJpgMetadata = function(buffer)
+{
+	var view = new DataView(buffer);
+	var chunks = [];
+	chunks.push(new Uint8Array(buffer, 0, 2)); // SOI
+	var offset = 2;
+
+	while (offset < buffer.byteLength - 1)
+	{
+		var marker = view.getUint16(offset);
+		
+		// SOS - Copies rest
+		if (marker === 0xFFDA)
+		{
+			chunks.push(new Uint8Array(buffer, offset));
+			break;
+		}
+		
+		// Standalone markers
+		if (marker >= 0xFFD0 && marker <= 0xFFD9)
+		{
+			chunks.push(new Uint8Array(buffer, offset, 2));
+			offset += 2;
+			continue;
+		}
+		
+		var segmentLength = view.getUint16(offset + 2);
+		
+		// Skips APP1/APP2
+		var isApp1 = marker === 0xFFE1;
+		var isApp2 = marker === 0xFFE2;
+		
+		if (!isApp1 && !isApp2)
+		{
+			chunks.push(new Uint8Array(buffer, offset, 2 + segmentLength));
+		}
+
+		offset += 2 + segmentLength;
+	}
+	
+	// Merges chunks
+	var totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+	var result = new Uint8Array(totalLength);
+	var pos = 0;
+
+	for (var chunk of chunks)
+	{
+		result.set(chunk, pos);
+		pos += chunk.length;
+	}
+
+	return result;
+};
+
+/**
+ * Removes EXIF metadata from the given PNG data.
+ */
+Editor.stripPngMetadata = function(buffer)
+{
+	var view = new DataView(buffer);
+
+	// Chunks to be removed
+	var metadataChunks = new Set([
+		'eXIf', // EXIF
+		'tEXt', // Text
+		'iTXt', // International text / XMP
+		'zTXt', // Compressed text
+		'iCCP', // ICC Profile
+		'tIME', // Modification time
+		// Optional chunks:
+		// 'pHYs', // DPI info
+		// 'hIST', // Histogram
+		// 'sPLT', // Suggested palette
+	]);
+
+	var chunks = [];
+	chunks.push(new Uint8Array(buffer, 0, 8)); // PNG signature
+
+	var offset = 8;
+	while (offset < buffer.byteLength)
+	{
+		var length = view.getUint32(offset);
+		var type = String.fromCharCode(
+			view.getUint8(offset + 4),
+			view.getUint8(offset + 5),
+			view.getUint8(offset + 6),
+			view.getUint8(offset + 7))
+		var chunkSize = 4 + 4 + length + 4; // length + type + data + CRC
+
+		if (!metadataChunks.has(type))
+		{
+			chunks.push(new Uint8Array(buffer, offset, chunkSize));
+		}
+
+		offset += chunkSize;
+
+		if (type === 'IEND')
+		{
+			break;
+		}
+	}
+
+	// Merges chunks
+	var totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+	var result = new Uint8Array(totalLength);
+	var pos = 0;
+
+	for (var chunk of chunks)
+	{
+		result.set(chunk, pos);
+		pos += chunk.length;
+	}
+
+	return result;
 };
 
 /**

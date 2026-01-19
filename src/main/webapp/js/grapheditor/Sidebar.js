@@ -715,7 +715,7 @@ Sidebar.prototype.addDataEntry = function(tags, width, height, title, data)
 /**
  * Adds the give entries to the search index.
  */
-Sidebar.prototype.addEntries = function(images)
+Sidebar.prototype.addEntries = function(images, defaultTags)
 {
 	for (var i = 0; i < images.length; i++)
 	{
@@ -727,6 +727,11 @@ Sidebar.prototype.addEntries = function(images)
 			if (img.tags != null)
 			{
 				tags += ' ' + img.tags;
+			}
+
+			if (defaultTags != null)
+			{
+				tags += ' ' + defaultTags;
 			}
 
 			if (data != null && tags.length > 0)

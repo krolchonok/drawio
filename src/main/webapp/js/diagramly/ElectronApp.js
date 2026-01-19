@@ -1034,24 +1034,50 @@ mxStencilRegistry.allowEval = false;
 				'file', [file], 'stat', [file.stat],
 				'curr', [curr], 'prev', [prev],
 				'unwatchedSaves', file.unwatchedSaves);
-			file.inConflictState = true;
 
-			file.addConflictStatus(null, mxUtils.bind(this, function()
+			var addConflictStatus = mxUtils.bind(this, function(latestFile)
 			{
-				file.ui.updateStatus(mxUtils.bind(this, function()
-				{
-					file.ui.editor.setStatus(mxUtils.htmlEntities(
-						mxResources.get('updatingDocument')));
-				}));
+				file.inConflictState = true;
 
-				file.synchronizeFile(mxUtils.bind(this, function()
+				file.addConflictStatus(null, mxUtils.bind(this, function()
 				{
-					file.handleFileSuccess(false);
-				}), mxUtils.bind(this, function(err)
-				{
-					file.handleFileError(err, true);
+					file.ui.updateStatus(mxUtils.bind(this, function()
+					{
+						file.ui.editor.setStatus(mxUtils.htmlEntities(
+							mxResources.get('updatingDocument')));
+					}));
+
+					file.synchronizeFile(mxUtils.bind(this, function()
+					{
+						file.handleFileSuccess(false);
+					}), mxUtils.bind(this, function(err)
+					{
+						file.handleFileError(err, true);
+					}));
 				}));
-			}));
+			});
+
+			// Checks checksums before notifiying in case of timestamp change
+			if (curr.size == prev.size)
+			{
+				file.getLatestVersion(mxUtils.bind(this, function(latestFile)
+				{
+					if (this.getHashValueForPages(file.getShadowPages()) !==
+						this.getHashValueForPages(latestFile.getShadowPages()))
+					{
+						addConflictStatus(latestFile);
+					}
+					else
+					{
+						EditorUi.debug('EditorUi.handleFileChange', [this],
+							'No changes detected in file', [file]);
+					}
+				}), addConflictStatus);
+			}
+			else
+			{
+				addConflictStatus();
+			}
 		}
 	};
 
@@ -1619,7 +1645,7 @@ mxStencilRegistry.allowEval = false;
 
 	var origAddConflictStatus = LocalFile.prototype.addConflictStatus;
 
-	LocalFile.prototype.addConflictStatus = function(message, fn)
+	LocalFile.prototype.addConflictStatus = function(message, fn, latestFile)
 	{
 		if (Editor.desktopAutoSync && this.ui.editor.autosave)
 		{
