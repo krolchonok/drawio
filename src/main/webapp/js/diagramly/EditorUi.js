@@ -2093,7 +2093,7 @@
 				if (nodes.length > 0)
 				{
 					var hashObj = this.getHashObject();
-					this.fileStats(file, node);
+					// this.fileStats(file, node);
 					var selectedPage = null;
 					this.fileNode = node;
 					this.pages = [];
@@ -8371,16 +8371,23 @@
 	 */
 	EditorUi.prototype.importXml = function(xml, dx, dy, crop, noErrorHandling, addNewPage, applyDefaultStyles)
 	{
+		EditorUi.debug('EditorUi.importXml', [this], 'xml', [xml], 'dx', [dx], 'dy', [dy],
+			'crop', [crop], 'noErrorHandling', [noErrorHandling], 'addNewPage', [addNewPage],
+			'applyDefaultStyles', [applyDefaultStyles]);
+		
 		dx = (dx != null) ? dx : 0;
 		dy = (dy != null) ? dy : 0;
 		var cells = []
 		
 		try
 		{
-			var graph = this.editor.graph;
-	
 			if (xml != null && xml.length > 0)
 			{
+				var pageCount = this.pages != null ? this.pages.length : 0;
+				var pageEmpty = this.isDiagramEmpty();
+				var lastPage = this.currentPage;
+				var graph = this.editor.graph;
+
 				// Adds pages
 				graph.model.beginUpdate();
 				try
@@ -8395,54 +8402,38 @@
 					{
 						var diagrams = node.getElementsByTagName('diagram');
 
-						if (diagrams.length == 1 && !addNewPage)
-						{
-							node = Editor.parseDiagramNode(diagrams[0]);
-							
-							if (this.currentPage != null)
-							{
-								mapping[diagrams[0].getAttribute('id')] = this.currentPage.getId();
-								
-								// Renames page if diagram has one blank page with default name
-								if (this.isBlankFile())
-								{
-									var name = diagrams[0].getAttribute('name');
-									
-									if (name != null && name != '')
-									{
-										this.editor.graph.model.execute(new RenamePage(
-											this, this.currentPage, name));
-									}
-								}
-							}
-						}
-						else if (diagrams.length > 0)
+						if (diagrams.length > 0)
 						{
 							var pages = [];
 							var i0 = 0;
-							
-							// Adds first page to current page if current page is only page and empty
-							if (this.pages != null && this.pages.length == 1 && this.isDiagramEmpty())
+
+							// Imports single page into existing page
+							if (diagrams.length == 1 && !addNewPage)
 							{
-								mapping[diagrams[0].getAttribute('id')] = this.pages[0].getId();
-
-								var name = diagrams[0].getAttribute('name');
-
-								if (name != null && name != '')
+								if (this.currentPage != null)
 								{
-									this.editor.graph.model.execute(new RenamePage(
-										this, this.pages[0], name));
-								}	
+									mapping[diagrams[0].getAttribute('id')] = this.currentPage.getId();
+
+									if (this.isBlankFile())
+									{
+										var name = diagrams[0].getAttribute('name');
+
+										if (name != null && name != '')
+										{
+											this.editor.graph.model.execute(new RenamePage(
+												this, this.currentPage, name));
+										}
+									}
+								}
 
 								node = Editor.parseDiagramNode(diagrams[0]);
 								crop = false;
 								i0 = 1;
 							}
 
+							// Assigns new page IDs and updates page links
 							for (var i = i0; i < diagrams.length; i++)
 							{
-								// Imported pages must obtain a new ID and
-								// all links to pages must be updated below
 								var oldId = diagrams[i].getAttribute('id')
 								diagrams[i].removeAttribute('id');
 								
@@ -8455,11 +8446,12 @@
 								{
 									page.setName(mxResources.get('pageWithNumber', [index + 1]));
 								}
-								
-								graph.model.execute(new ChangePage(this, page, page, index, true));
+
+								graph.model.execute(new ChangePage(this,
+									page, page, index, i > 0));
 								pages.push(page);
 							}
-							
+
 							this.updatePageLinks(mapping, pages);
 						}
 					}
@@ -8482,10 +8474,12 @@
 
 						if (bgImg != null && bgImg.originalSrc != null)
 						{
-							this.updateBackgroundPageLink(mapping, bgImg);
-							var change = new ChangePageSetup(this, null, bgImg);
-							change.ignoreColor = true;
-							graph.model.execute(change);
+							if (this.updateBackgroundPageLink(mapping, bgImg))
+							{
+								var change = new ChangePageSetup(this, null, bgImg);
+								change.ignoreColor = true;
+								graph.model.execute(change);
+							}
 						}
 					}
 					
@@ -8493,6 +8487,12 @@
 					{
 						graph.pasteCellStyles(graph.includeDescendants(cells),
 							graph.defaultVertexStyle, graph.defaultEdgeStyle);
+					}
+
+					if (!addNewPage && lastPage != this.currentPage && this.pages != null &&
+						this.pages.length > 1 && pageEmpty && pageCount == 1)
+					{
+						this.removePage(lastPage);
 					}
 				}
 				finally
@@ -8525,9 +8525,15 @@
 		{
 			this.updatePageLinksForCell(mapping, pages[i].root);
 
-			if (pages[i].viewState != null)
+			if (pages[i].viewState != null && this.updateBackgroundPageLink(
+				mapping, pages[i].viewState.backgroundImage))
 			{
-				this.updateBackgroundPageLink(mapping, pages[i].viewState.backgroundImage);
+				if (pages[i] == this.currentPage)
+				{
+					this.editor.graph.setViewState(pages[i].viewState, true);
+				}
+
+				pages[i].needsUpdate = true;
 			}
 		}
 	};
@@ -8537,6 +8543,8 @@
 	 */
 	EditorUi.prototype.updateBackgroundPageLink = function(mapping, obj)
 	{
+		var result = false;
+
 		try
 		{
 			if (obj != null && Graph.isPageLink(obj.originalSrc))
@@ -8546,6 +8554,7 @@
 				if (newId != null)
 				{
 					obj.originalSrc = 'data:page/id,' + newId;
+					result = true;
 				}
 			}
 		}
@@ -8553,6 +8562,8 @@
 		{
 			// ignore background image
 		}
+
+		return result;
 	};
 
 	/**
@@ -10630,6 +10641,7 @@
 			
 			if (this.spinner.spin(document.body, mxResources.get('loading')))
 			{
+				var lastPage = this.currentPage;
 				var count = files.length;
 				var remain = count;
 				var queue = [];
@@ -10669,7 +10681,16 @@
 								graph.getModel().endUpdate();
 							}
 						}
-						
+
+						// Resets view if current page changed during import
+						if (lastPage != this.currentPage)
+						{
+							window.setTimeout(mxUtils.bind(this, function()
+							{
+								this.actions.get('resetView').funct();
+							}), 0);
+						}
+
 						resultFn(cells);
 					}
 				});
@@ -11571,7 +11592,7 @@
 			this.editor.editBlankUrl = 'https://app.diagrams.net/';
 		}
 		
-		// Passes dev mode to new window
+		// Passes dev and test mode to new window
 		var editorGetEditBlankUrl = ui.editor.getEditBlankUrl;
 		
 		this.editor.getEditBlankUrl = function(params)
@@ -11581,6 +11602,11 @@
 			if (urlParams['dev'] == '1')
 			{
 				params += ((params.length > 0) ? '&' : '?') + 'dev=1';
+			}
+
+			if (urlParams['test'] == '1')
+			{
+				params += ((params.length > 0) ? '&' : '?') + 'test=1';
 			}
 			
 			return editorGetEditBlankUrl.apply(this, arguments);

@@ -1,3 +1,42 @@
+27-JAN-2026: 29.3.6
+
+- Adds delete all pages option
+- Improvements for XML import
+- Adds custom line dash pattern options
+- Update translations submodule to 996b60e
+- Disables file size stats
+- Adds claude guide to root
+- Fixes handling of inherit color value
+- Fixes overflow, adds option to insert layer after current layer, moves selection layers [jgraph/drawio#5438]
+- Update translations submodule to 6650194
+- Update translations submodule to 645f7e6
+- Conf Cloud: Fixed race condition in OAuth requests when multiple viewers are in the same page [DID-17497]
+- VSDX Import: Fixed some NPE and added a case for embedded images [DID-17282]
+
+20-JAN-2026: 29.3.5
+
+- Add simple.js build to atlas.min.js
+
+20-JAN-2026: 29.3.4
+
+- Added some css filtering for @import and absolute urls [bugcrowd 31d70940-348e-4d9e-ae26-a20396ef5d69]
+- Improvements for [bugcrowd 31d70940-348e-4d9e-ae26-a20396ef5d69]
+- Adds Kalaallisut to supported languages
+
+19-JAN-2026: 29.3.3
+
+- Adds expandToFront cell style [jgraph/drawio#4413,jgraph/drawio#5419]
+- VSDX Import: Improved background color parsing [DID-17382]
+- Fixes hide of shape picker on hover icon reset
+- Moves autosize text to Misc sidebar [jgraph/drawio-desktop#2313]
+- Fixes drag and drop in layers dialog
+- Augments existing URL parameters with #P
+- Handles test mode in getEditBlankUrl
+- Creates temporary file after close
+- Fixes saveAs for browser files
+- Uses #P for edit as new
+- Clears #P hash property in client mode, keeps saved temp file in same window
+
 15-JAN-2026: 29.3.2
 
 - Adds shift+click on app version in desktop to enable debug mode

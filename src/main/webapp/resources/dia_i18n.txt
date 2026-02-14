@@ -1332,3 +1332,5 @@ drawioUninstalled=drawioUninstalled
 confAttachmentArchived=confAttachmentArchived
 confDiagramMacroDowngrade=confDiagramMacroDowngrade
 DCSave500Error=DCSave500Error
+confAppNotInstalled=confAppNotInstalled
+plsInstallAppInConf=plsInstallAppInConf

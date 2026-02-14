@@ -3288,17 +3288,15 @@ App.prototype.start = function()
 						}
 						
 						var file = new LocalFile(this, xml, title, true);
-						
-						if (window.location.hash != null && window.location.hash.substring(0, 2) == '#P')
-						{
-							file.getHash = function()
-							{
-								return window.location.hash.substring(1);
-							};
-						}
-						
 						this.fileLoaded(file);
 
+						// Clears parameters hash property in client mode
+						if (window.location.hash != null &&
+							window.location.hash.substring(0, 2) == '#P')
+						{
+							window.location.hash = '';
+						}
+						
 						if (!this.editor.chromeless)
 						{
 							// Handles possible copy of modified file
@@ -4829,11 +4827,16 @@ App.prototype.saveFile = function(forceDialog, success)
 								var selection = graph.getSelectionCells();
 								var viewState = graph.getViewState();
 								var page = this.currentPage;
+
+								// Opens new window if not temporary file
+								var currentFile = this.getCurrentFile();
+								var replace = this.mode == null || (currentFile == null ||
+										currentFile.mode == null);
 								
 								this.createFile(name, this.getFileData(/(\.xml)$/i.test(name) ||
 									name.indexOf('.') < 0 || /(\.drawio)$/i.test(name),
 									/(\.svg)$/i.test(name), /(\.html)$/i.test(name)), null,
-									mode, done, this.mode == null, folderId, null, null,
+									mode, done, replace, folderId, null, null,
 									mxUtils.bind(this, function()
 									{
 										this.restoreViewState(page, viewState, selection);

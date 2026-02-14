@@ -1001,9 +1001,7 @@ Editor.prototype.editAsNew = function(xml, title, lightbox, pageId)
 	}
 	
 	if (!navigator.standalone &&
-		typeof window.postMessage !== 'undefined' &&
-		(document.documentMode == null ||
-		document.documentMode >= 10))
+		typeof window.postMessage !== 'undefined')
 	{
 		var wnd = null;
 		
@@ -1015,11 +1013,21 @@ Editor.prototype.editAsNew = function(xml, title, lightbox, pageId)
 				wnd.postMessage(xml, '*');
 			}
 		});
-			
+
+		// Uses transient hash for URL parameters
+		var tokens = p.substring(1).split('&');
+		var json = {'client': 1};
+
+		for (var i = 0; i < tokens.length; i++)
+		{
+			var keyValue = tokens[i].split('=');
+			json[keyValue[0]] = keyValue[1] || '';
+		}
+		
 		mxEvent.addListener(window, 'message', l);
-		wnd = this.graph.openLink(this.getEditBlankUrl(
-			p + ((p.length > 0) ? '&' : '?') +
-			'client=1'), null, true);
+		wnd = this.graph.openLink(this.getEditBlankUrl('') +
+			'#P' + encodeURIComponent(JSON.stringify(json)),
+			null, true);
 	}
 	else
 	{

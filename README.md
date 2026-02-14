@@ -1,59 +1,51 @@
-About
------
-draw.io, this project, is a configurable diagramming/whiteboarding visualization application. draw.io is jointly owned and developed by draw.io Ltd and draw.io AG.
+# draw.io
 
-As well as running this project, we run a production-grade deployment of the diagramming interface at https://app.diagrams.net.
+## About
 
-License
------------------
+draw.io is a configurable diagramming and whiteboarding application, jointly owned and developed by draw.io Ltd (previously named JGraph) and draw.io AG. We also run a production deployment at https://app.diagrams.net.
 
-The minified code authored by us in this repo is licensed under an Apache v2 license, but not all the sources to build those files are in this repo. This is not an open source project. We do not accept PRs.
+## License
 
-The JGraph provided icons and diagram templates are licensed under the [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Additional terms may also apply where the icons are originally defined by a third-party copyright holder. We have checked in all cases that the original license allows use in this project. Also see the terms for using the draw.io logo below.
+The source code in this repository is licensed under the [Apache License 2.0](LICENSE).
 
-Additional minified JavaScript files and Java libraries are used in this project. All of the licenses are deemed compatible with the Apache 2.0, nothing is GPL or AGPL, due diligence is performed on all third-party code.
+The icon sets, stencil libraries, and diagram templates are provided under the following terms:
 
-We make no copyright claim on the content you create with this software, regardless of the copyright of individual icons used in such content.
+> The icon sets and stencil libraries included in this software, and any derivatives thereof (including conversions to other formats, traced reproductions, substantially similar visual representations, or AI-generated images created using these icons as reference or training input), may not be used as software assets in, distributed for use with, or incorporated into Atlassian products or products distributed through the Atlassian marketplace or plugin ecosystem, without explicit written permission.
+>
+> This restriction does not apply to end-user diagram output (such as exported images or documents) created using this software.
 
-PRs and use of gen AI
----------------------
+Some icons are originally defined by third-party copyright holders; we have verified that all original licenses permit use in this project. Additional third-party JavaScript libraries are included, all with licenses compatible with Apache 2.0 (no GPL or AGPL).
 
-This entire project is written by humans only and written by the core team only. There have been various reasons for this historically, but the key reason from 2024 is that we have no way to determine whether PRs are also human written.
+We make no copyright claim on diagrams you create with this software.
 
-Scope of the Project
---------------------
+## Contributions
 
-draw.io is a diagramming or whiteboarding application, depending on which theme is selected. It is not an SVG editing app, the SVG export is designed only for embedding in web pages, not for further editing in other tools.
+We do not accept pull requests. The project is developed entirely by the core team. The entire draw.io editor is human written by the core, full-time development team, no AI generation. 
 
-The application is designed to be entirely as-is. draw.io is not suitable as a framework for building other products from, as source code is not provided. For this try either [Tldraw](https://github.com/tldraw/tldraw) or [Excalidraw](https://github.com/excalidraw/excalidraw).
+## Scope
 
-Note, in particular, we don't have support for collaborative editing in this project. If this is important, one of the projects above is likely a better choice.
+draw.io is a diagramming and whiteboarding application. It is not an SVG editor. SVG export is intended for embedding in web pages, not for editing in other tools.
 
-If you are using a draw.io project/product and have issues or questions about the editor itself, the issue tracker and discussion in this GitHub project are likely a good place to look.
+Note that draw.io does not support real-time collaborative editing in this version, currently.
 
-Running
--------
+For issues or questions about the editor in any draw.io product, the issue tracker and discussions here are a good starting point.
 
-One way to run draw.io is to fork this project, [publish the master branch to GitHub pages](https://help.github.com/categories/github-pages-basics/) and the [pages sites](https://jgraph.github.io/drawio/src/main/webapp/index.html) will have the full editor functionality (sans the integrations).
+## Running
 
-Another way is to use [the recommended Docker project](https://github.com/jgraph/docker-drawio) or to download [draw.io Desktop](https://get.diagrams.net).
+Options for running draw.io:
 
-The full packaged .war of the client and servlets is built when the project is tagged and available on the [releases page](https://github.com/jgraph/draw.io/releases).
+- Fork this repository and [publish to GitHub Pages](https://help.github.com/categories/github-pages-basics/) for a [fully functional editor](https://jgraph.github.io/drawio/src/main/webapp/index.html) (without integrations)
+- Use the [official Docker image](https://github.com/jgraph/docker-drawio)
+- Download [draw.io Desktop](https://get.diagrams.net)
 
-Supported Browsers
-------------------
+Packaged .war files are available on the [releases page](https://github.com/jgraph/draw.io/releases).
 
-draw.io supports Chrome 123+, Firefox 120+, Safari 17.5+, Opera 109+, WebView Android 137+, Safari iOS 18.5+ and Edge 123+.
+## Supported Browsers
 
-Logo and trademark usage
-------------------------
+Chrome 123+, Firefox 120+, Safari 17.5+, Opera 109+, Edge 123+, WebView Android 137+, Safari iOS 18.5+.
 
-draw.io is a registered EU trademark, #018062448
+## Trademark
 
-Do not use the draw.io name or any draw.io logo in a way that suggests you are JGraph, your offering or project is by JGraph, or that JGraph is endorsing you or your offering or project.
+draw.io is a registered EU trademark (#018062448).
 
-Do not use any draw.io logo as the icon or logo for your business/organization, offering, project, domain name, social media account, or website.
-
-Do not modify the permitted draw.io logos, including changing the color, dimensions, or combining with other words or design elements.
-
-Do not use JGraph trademarks or logos without JGraph’s prior written permission.
+Do not use the draw.io name or logo in ways that suggest affiliation with, endorsement by, or sponsorship by draw.io. Do not use draw.io logos for your own business, product, project, domain, or social media presence. Do not modify the draw.io logos. Use of draw.io trademarks requires prior written permission.

@@ -190,7 +190,7 @@ StorageFile.prototype.saveAs = function(title, success, error)
 {
 	DrawioFile.prototype.save.apply(this, [false, mxUtils.bind(this, function()
 	{
-		this.saveFile(this.getTitle(), false, success, error);
+		this.saveFile(title, false, success, error);
 	}), error]);
 };
 

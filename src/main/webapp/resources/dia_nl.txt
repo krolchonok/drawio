@@ -1332,3 +1332,5 @@ drawioUninstalled=draw.io is verwijderd, de editor zal nu sluiten
 confAttachmentArchived=Diagram behoort tot een gearchiveerde pagina en kan niet worden geladen. Herstel de pagina (ID: {1}) om deze te laden.
 confDiagramMacroDowngrade=Het diagram wordt opgeslagen, maar de paginamacro kan niet worden bijgewerkt omdat de diagraamrevisie in de macro nieuwer is. Bewerk het diagram vanuit de Confluence-pagina-editor.
 DCSave500Error=Een andere Confluence-bewerking onderbrak het opslaan, probeer opnieuw #{1}
+confAppNotInstalled=De draw.io diagrams Confluence-app is niet geïnstalleerd.
+plsInstallAppInConf=Installeer/verbind deze app in Confluence om toegang te krijgen tot de diagrammen (naast de draw.io Confluence-app)

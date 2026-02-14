@@ -45,11 +45,21 @@ if (window.location.hash != null && window.location.hash.substring(0, 2) == '#P'
 {
     try
     {
+        var params = urlParams;
         urlParams = JSON.parse(decodeURIComponent(window.location.hash.substring(2)));
         
         if (urlParams.hash != null)
         {
             window.location.hash = urlParams.hash;
+            delete urlparams.hash;
+        }
+
+        for (var key in params)
+        {
+            if (urlParams[key] == null)
+            {
+                urlParams[key] = params[key];
+            }
         }
     }
     catch (e)

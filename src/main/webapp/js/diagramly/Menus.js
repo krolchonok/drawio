@@ -455,7 +455,8 @@
 					currentFile.removeDraft();
 				}
 				
-				editorUi.fileLoaded(new LocalFile(editorUi, editorUi.emptyDiagramXml));
+				editorUi.fileLoaded(new LocalFile(editorUi,
+					editorUi.emptyDiagramXml, null, true));
 			};
 			
 			if (currentFile != null && currentFile.isModified())
@@ -4424,6 +4425,30 @@
 						}
 					}))(i);
 				}
+
+				menu.addSeparator(parent);
+
+				menu.addItem(mxResources.get('deleteAll'), null, mxUtils.bind(this, function()
+				{
+					graph.getModel().beginUpdate();	
+					try
+					{	
+						for (var i = editorUi.pages.length; i >= 0; i--)
+						{
+							editorUi.removePage(editorUi.pages[i]);
+						}
+					}
+					catch (e)
+					{
+						editorUi.handleError(e);
+					}
+					finally
+					{
+						graph.getModel().endUpdate();
+					}
+
+					editorUi.actions.get('resetView').funct();
+				}), parent, null, editorUi.editor.graph.isEnabled());
 			}
 		})));
 		

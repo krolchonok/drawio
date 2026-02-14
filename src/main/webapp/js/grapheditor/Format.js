@@ -1246,9 +1246,22 @@ BaseFormatPanel.prototype.createCellColorOption = function(label, colorKey, defa
 	function getValue()
 	{
 		var style = graph.getCellStyle(graph.getSelectionCell(), false);
-		
-		return (style != null) ? ((style[colorKey] != null) ?
-			style[colorKey] : undefinedValue) : null;
+		var returnValue = (style != null) ? style[colorKey] : null;
+
+		// Handles special case for inherited colors
+		if (returnValue == 'inherit')
+		{
+			var parent = graph.getModel().getParent(graph.getSelectionCell());
+			var pstyle = graph.getCellStyle(parent, false);
+
+			if (pstyle != null && pstyle[colorKey] != null)
+			{
+				returnValue = pstyle[colorKey];
+			}
+		}
+
+		return (style != null) ? ((returnValue != null) ?
+			returnValue : undefinedValue) : null;
 	};
 
 	var value = getValue();
@@ -4779,7 +4792,7 @@ StyleFormatPanel.prototype.addEditOps = function(div)
 				var editOption = document.createElement('option');
 				editOption.setAttribute('value', ops[i]);
 				var title = mxResources.get(ops[i]);
-				mxUtils.write(editOption, title + '...');
+				mxUtils.write(editOption, title);
 
 				if (action != null && action.shortcut != null)
 				{
@@ -5290,26 +5303,53 @@ StyleFormatPanel.prototype.addStroke = function(container)
 
 	var addItem = mxUtils.bind(this, function(menu, width, pattern, keys, values)
 	{
-		var item = this.editorUi.menus.styleChange(menu, '', keys, values, '', null);
+		var item = this.editorUi.menus.styleChange(menu, '', keys, values, '');
 		var pat = document.createElement('div');
 		this.addDashPattern(pat, pattern);
 		item.firstChild.firstChild.className = 'geStyleMenuItem';
 		item.firstChild.firstChild.style.width = width + 'px';
 		item.firstChild.firstChild.appendChild(pat);
-		
+
 		return item;
 	});
 
+	var dashKeys = [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN];
+
+	function createCustomDiv(width)
+	{
+		var customDiv = document.createElement('div');
+		mxUtils.write(customDiv, mxResources.get('custom'));
+		customDiv.setAttribute('title', mxResources.get('custom'));
+		customDiv.className = 'geStyleMenuItem';
+		customDiv.style.textAlign = 'center';
+		customDiv.style.display = 'block';
+		customDiv.style.textOverflow = 'ellipsis';
+		customDiv.style.overflow = 'hidden';
+		customDiv.style.maxWidth = width + 'px';
+		customDiv.style.fontSize = '12px';
+
+		return customDiv;
+	};
+	
 	var pattern = ui.toolbar.addMenu(new Menu(mxUtils.bind(this, function(menu)
 	{
-		addItem(menu, 110, 'solid', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN], [null, null]).setAttribute('title', mxResources.get('solid'));
-		addItem(menu, 110, 'dashed', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN], ['1', null]).setAttribute('title', mxResources.get('dashed') + ' (1)');
-		addItem(menu, 110, '8 8', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN], ['1', '8 8']).setAttribute('title', mxResources.get('dashed') + ' (2)');
-		addItem(menu, 110, '12 12', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN], ['1', '12 12']).setAttribute('title', mxResources.get('dashed') + ' (3)');
-		addItem(menu, 110, '8 4 1 4', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN], ['1', '8 4 1 4']).setAttribute('title', mxResources.get('dashed') + ' (4)');
-		addItem(menu, 110, 'dotted', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN], ['1', '1 1']).setAttribute('title', mxResources.get('dotted') + ' (1)');
-		addItem(menu, 110, '1 2', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN], ['1', '1 2']).setAttribute('title', mxResources.get('dotted') + ' (2)');
-		addItem(menu, 110, '1 4', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN], ['1', '1 4']).setAttribute('title', mxResources.get('dotted') + ' (3)');
+		addItem(menu, 110, 'solid', dashKeys, [null, null]).setAttribute('title', mxResources.get('solid'));
+		addItem(menu, 110, 'dashed', dashKeys, ['1', null]).setAttribute('title', mxResources.get('dashed') + ' (1)');
+		addItem(menu, 110, '8 8', dashKeys, ['1', '8 8']).setAttribute('title', mxResources.get('dashed') + ' (2)');
+		addItem(menu, 110, '12 12', dashKeys, ['1', '12 12']).setAttribute('title', mxResources.get('dashed') + ' (3)');
+		addItem(menu, 110, '8 4 1 4', dashKeys, ['1', '8 4 1 4']).setAttribute('title', mxResources.get('dashed') + ' (4)');
+		addItem(menu, 110, 'dotted', dashKeys, ['1', '1 1']).setAttribute('title', mxResources.get('dotted') + ' (1)');
+		addItem(menu, 110, '1 2', dashKeys, ['1', '1 2']).setAttribute('title', mxResources.get('dotted') + ' (2)');
+		addItem(menu, 110, '1 4', dashKeys, ['1', '1 4']).setAttribute('title', mxResources.get('dotted') + ' (3)');
+
+		menu.addItem('', null, mxUtils.bind(this, function()
+		{
+			ui.prompt(mxResources.get('pattern'), mxUtils.getValue(ss.style, mxConstants.STYLE_DASH_PATTERN, '8 4 1 4'),
+				mxUtils.bind(this, function(newValue)
+				{
+					ui.menus.createStyleChangeFunction(dashKeys, ['1', newValue])();
+				}), true);
+		})).firstChild.appendChild(createCustomDiv(110));
 	})), '', null, stylePanel);
 
 	// Used for mixed selection (vertices and edges)
@@ -5318,7 +5358,6 @@ StyleFormatPanel.prototype.addStroke = function(container)
 	var edgeShape = ui.toolbar.addMenu(new Menu(mxUtils.bind(this, function(menu)
 	{
 		var keys = [mxConstants.STYLE_SHAPE, mxConstants.STYLE_STARTSIZE, mxConstants.STYLE_ENDSIZE, mxConstants.STYLE_DASHED, 'width'];
-
 		Format.processMenuIcon(this.editorUi.menus.styleChange(menu, '', keys, [null, null, null, null, null], '',
 			null, null, null, true, Format.connectionImage.src)).setAttribute('title', mxResources.get('line'));
 		Format.processMenuIcon(this.editorUi.menus.styleChange(menu, '', keys, ['link', null, null, null, null], '',
@@ -5339,22 +5378,23 @@ StyleFormatPanel.prototype.addStroke = function(container)
 
 	var altPattern = ui.toolbar.addMenu(new Menu(mxUtils.bind(this, function(menu)
 	{
-		addItem(menu, 40, 'solid', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN],
-			[null, null]).setAttribute('title', mxResources.get('solid'));
-		addItem(menu, 40, 'dashed', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN],
-			['1', null]).setAttribute('title', mxResources.get('dashed') + ' (1)');
-		addItem(menu, 40, '8 8', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN],
-			['1', '8 8']).setAttribute('title', mxResources.get('dashed') + ' (2)');
-		addItem(menu, 40, '12 12', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN],
-			['1', '12 12']).setAttribute('title', mxResources.get('dashed') + ' (3)');
-		addItem(menu, 40, '8 4 1 4', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN],
-			['1', '8 4 1 4']).setAttribute('title', mxResources.get('dashed') + ' (4)');
-		addItem(menu, 40, 'dotted', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN],
-			['1', '1 1']).setAttribute('title', mxResources.get('dotted') + ' (1)');
-		addItem(menu, 40, '1 2', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN],
-			['1', '1 2']).setAttribute('title', mxResources.get('dotted') + ' (2)');
-		addItem(menu, 40, '1 4', [mxConstants.STYLE_DASHED, mxConstants.STYLE_DASH_PATTERN],
-			['1', '1 4']).setAttribute('title', mxResources.get('dotted') + ' (3)');
+		addItem(menu, 44, 'solid', dashKeys, [null, null]).setAttribute('title', mxResources.get('solid'));
+		addItem(menu, 44, 'dashed', dashKeys, ['1', null]).setAttribute('title', mxResources.get('dashed') + ' (1)');
+		addItem(menu, 44, '8 8', dashKeys, ['1', '8 8']).setAttribute('title', mxResources.get('dashed') + ' (2)');
+		addItem(menu, 44, '12 12', dashKeys, ['1', '12 12']).setAttribute('title', mxResources.get('dashed') + ' (3)');
+		addItem(menu, 44, '8 4 1 4', dashKeys, ['1', '8 4 1 4']).setAttribute('title', mxResources.get('dashed') + ' (4)');
+		addItem(menu, 44, 'dotted', dashKeys, ['1', '1 1']).setAttribute('title', mxResources.get('dotted') + ' (1)');
+		addItem(menu, 44, '1 2', dashKeys, ['1', '1 2']).setAttribute('title', mxResources.get('dotted') + ' (2)');
+		addItem(menu, 44, '1 4', dashKeys, ['1', '1 4']).setAttribute('title', mxResources.get('dotted') + ' (3)');
+		
+		menu.addItem('', null, mxUtils.bind(this, function()
+		{
+			ui.prompt(mxResources.get('pattern'), mxUtils.getValue(ss.style, mxConstants.STYLE_DASH_PATTERN, '8 4 1 4'),
+				mxUtils.bind(this, function(newValue)
+				{
+					ui.menus.createStyleChangeFunction(dashKeys, ['1', newValue])();
+				}), true);
+		})).firstChild.appendChild(createCustomDiv(44));
 	})), '', null, altStylePanel);
 	
 	var stylePanel2 = stylePanel.cloneNode(false);

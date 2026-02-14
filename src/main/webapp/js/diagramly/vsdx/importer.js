@@ -4654,7 +4654,7 @@ var com;
                                 clrIndex = styleColor - 100;
                             }
                             if (clrIndex >= 0 && clrIndex <= 6) {
-                                color = this.variantsColors[this.themeVariantClr][clrIndex];
+                                color = this.variantsColors[this.themeVariantClr % this.variantsColors.length][clrIndex];
                             }
                             if (color != null) {
                                 return color.getColor$com_mxgraph_io_vsdx_mxVsdxTheme(this);
@@ -4725,8 +4725,8 @@ var com;
                             {
                                 var bkgHSLClr = this.getStyleColor(8).toHsl();
                                 var lineClr = this.getLineColor$com_mxgraph_io_vsdx_theme_QuickStyleVals(quickStyleVals);
-                                var lineHSLClr = lineClr.toHsl();
-                                var fillHSLClr = retColor.toHsl();
+                                var lineHSLClr = typeof lineClr == 'object'? lineClr.toHsl() : com.mxgraph.io.vsdx.theme.Color.decodeColorHex(lineClr).toHsl();
+                                var fillHSLClr = typeof retColor == 'object'? retColor.toHsl() : com.mxgraph.io.vsdx.theme.Color.decodeColorHex(retColor).toHsl();
                                 
                                 
                                 if (Math.abs(bkgHSLClr.getLum() - fillHSLClr.getLum()) >= 0.1666) 
@@ -4827,8 +4827,8 @@ var com;
                         {
                         	var bkgHSLClr = this.getStyleColor(8).toHsl();
                         	var fillColor = this.getFillColor$com_mxgraph_io_vsdx_theme_QuickStyleVals(quickStyleVals);
-                            var fillHSLClr = fillColor.toHsl();
-                            var lineHSLClr = lineClr.toHsl();
+                            var fillHSLClr = typeof fillColor == 'object'? fillColor.toHsl() : com.mxgraph.io.vsdx.theme.Color.decodeColorHex(fillColor).toHsl();
+                            var lineHSLClr = typeof lineClr == 'object'? lineClr.toHsl() : com.mxgraph.io.vsdx.theme.Color.decodeColorHex(lineClr).toHsl();
                             
                             if (Math.abs(bkgHSLClr.getLum() - lineHSLClr.getLum()) >= 0.1666) 
                             {
@@ -4979,11 +4979,11 @@ var com;
                         if ((styleVariation & 2) > 0) 
                         {
                         	var bkgHSLClr = this.getStyleColor(8).toHsl();
-                        	var txtHSLClr = txtColor.toHsl();
+                        	var txtHSLClr = typeof txtColor == 'object'? txtColor.toHsl() : com.mxgraph.io.vsdx.theme.Color.decodeColorHex(txtColor).toHsl();
                         	var fillColor = this.getFillColor$com_mxgraph_io_vsdx_theme_QuickStyleVals(quickStyleVals);
-                            var fillHSLClr = fillColor.toHsl();
+                            var fillHSLClr = typeof fillColor == 'object'? fillColor.toHsl() : com.mxgraph.io.vsdx.theme.Color.decodeColorHex(fillColor).toHsl();
                             var lineClr = this.getLineColor$com_mxgraph_io_vsdx_theme_QuickStyleVals(quickStyleVals);
-                            var lineHSLClr = lineClr.toHsl();
+                            var lineHSLClr = typeof lineClr == 'object'? lineClr.toHsl() : com.mxgraph.io.vsdx.theme.Color.decodeColorHex(lineClr).toHsl();
                             
                             if (Math.abs(bkgHSLClr.getLum() - txtHSLClr.getLum()) >= 0.1666) 
                             {
@@ -5611,6 +5611,7 @@ var com;
                             return new com.mxgraph.io.vsdx.theme.HSVColor(h, s, v);
                         };
                         Color.decodeColorHex = function (hex) {
+                            hex = hex? hex.replace('#', '') : 'FFFFFF';
                             var color = parseInt(hex, 16);
                             return new Color((color >> 16) & 255, (color >> 8) & 255, color & 255);
                         };
@@ -9291,7 +9292,7 @@ var com;
                             {
                                 typeTarget = getForeignRel(elem, filename);
 
-                                if (typeTarget.type.indexOf('/oleObject') > 0)
+                                //if (typeTarget.type.indexOf('/oleObject') > 0) // Allow this hack for all
                                 {
                                     var relElem = model.getRelationship("rId1", "visio/embeddings/_rels/" + typeTarget.target + ".rels");
                                     

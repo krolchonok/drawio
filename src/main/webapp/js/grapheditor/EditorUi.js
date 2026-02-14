@@ -1790,7 +1790,14 @@ EditorUi.prototype.installShapePicker = function()
 
 	if (this.hoverIcons != null)
 	{
-		this.hoverIcons.addListener('reset', hidePicker);
+		this.hoverIcons.addListener('reset', mxUtils.bind(this, function()
+		{
+			if (this.hoverIcons.shapePickerHoverDiv != null)
+			{
+				this.hoverIcons.shapePickerHoverDiv = null;
+				ui.hideShapePicker(true);
+			}
+		}));
 		var hoverIconsDrag = this.hoverIcons.drag;
 		
 		this.hoverIcons.drag = function()
@@ -1823,15 +1830,16 @@ EditorUi.prototype.installShapePicker = function()
 					// Asynchronous to avoid direct insert after double tap
 					window.setTimeout(mxUtils.bind(this, function()
 					{
-						ui.showShapePicker(me.getGraphX(), me.getGraphY(), temp, mxUtils.bind(this, function(cell)
-						{
-							execute(cell);
-							
-							if (ui.hoverIcons != null)
+						this.shapePickerHoverDiv = ui.showShapePicker(
+							me.getGraphX(), me.getGraphY(), temp, mxUtils.bind(this, function(cell)
 							{
-								ui.hoverIcons.update(graph.view.getState(cell));
-							}
-						}), dir);
+								execute(cell);
+								
+								if (ui.hoverIcons != null)
+								{
+									ui.hoverIcons.update(graph.view.getState(cell));
+								}
+							}), dir);
 					}), 30);
 				}), mxUtils.bind(this, function(result)
 				{
@@ -1888,6 +1896,7 @@ EditorUi.prototype.installShapePicker = function()
 				if (div != null)
 				{
 					this.centerShapePicker(div, rect, x, y, dir);
+					this.hoverIcons.shapePickerHoverDiv = div;
 					mxUtils.setOpacity(div, 30);
 
 					mxEvent.addListener(div, 'mouseenter', function()
@@ -2231,10 +2240,6 @@ EditorUi.prototype.getCellsForShapePicker = function(cell, hovering, showEdges)
 	{
 		cell = createVertex(graph.appendFontSize(Editor.defaultTextStyle,
 			graph.vertexFontSize), 60, 30, 'Text');
-		
-		// Adds autosize behaviour
-		cell.style = mxUtils.setStyle(mxUtils.setStyle(graph.model.getStyle(cell),
-			'autosize', '1'), 'resizable', '0');
 	}
 
 	var cells = [cell, createVertex('whiteSpace=wrap;html=1;'),
@@ -2285,6 +2290,12 @@ EditorUi.prototype.hideShapePicker = function(cancel)
 	{
 		this.shapePicker.parentNode.removeChild(this.shapePicker);
 		this.shapePicker = null;
+
+		if (this.hoverIcons != null &&
+			this.hoverIcons.shapePickerHoverDiv != null)
+		{
+			this.hoverIcons.shapePickerHoverDiv = null;
+		}
 				
 		if (!cancel && this.shapePickerCallback != null)
 		{
@@ -5409,12 +5420,12 @@ EditorUi.prototype.addSplitHandler = function(elt, horizontal, dx, onChange)
  * @param {number} dx X-coordinate of the translation.
  * @param {number} dy Y-coordinate of the translation.
  */
-EditorUi.prototype.prompt = function(title, defaultValue, fn)
+EditorUi.prototype.prompt = function(title, defaultValue, fn, asText)
 {
 	var dlg = new FilenameDialog(this, defaultValue,
 		mxResources.get('apply'), function(newValue)
 	{
-		fn(parseFloat(newValue));
+		fn((asText) ? newValue : parseFloat(newValue));
 	}, title);
 
 	this.showDialog(dlg.container, 300, 80, true, true);

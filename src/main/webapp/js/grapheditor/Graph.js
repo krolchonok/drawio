@@ -2747,6 +2747,46 @@ Graph.sanitizeNode = function(value)
 	return Graph.domPurify(value, true);
 };
 
+// Disallows external URLs in style attributes
+Graph.isStyleAllowed = function(css)
+{
+    // Normalize CSS escapes before checking
+    // CSS allows \XX hex escapes and \char escapes
+    var normalized = css.replace(/\\([0-9a-fA-F]{1,6})\s?/g, function(match, hex) {
+        return String.fromCharCode(parseInt(hex, 16));
+    }).replace(/\\(.)/g, '$1');
+    
+    // Match all url(...) occurrences
+    var urlRegex = /url\s*\(\s*(['"]?)(.*?)\1\s*\)/gi;
+    var match;
+    
+    while ((match = urlRegex.exec(normalized)) !== null)
+    {
+        var url = match[2].trim();
+        var isRelative = !/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(url);
+        var isDataUrl = url.toLowerCase().startsWith('data:');
+        
+        if (!isRelative && !isDataUrl)
+        {
+            return false;
+        }
+    }
+    
+    // Block @import entirely (check normalized version)
+    if (/@import/i.test(normalized))
+    {
+        return false;
+    }
+    
+    // TODO Consider also blocking:
+    // - @font-face (can load external fonts)
+    // - -webkit-mask-image, mask-image (can reference URLs)
+    // - list-style-image (can reference URLs)
+    // - cursor: url(...) (can reference URLs)
+    // - content: url(...) (can reference URLs)
+    
+    return true;
+}
 // Allows use tag in SVG with local references only
 DOMPurify.addHook('afterSanitizeAttributes', function(node)
 {
@@ -2755,6 +2795,25 @@ DOMPurify.addHook('afterSanitizeAttributes', function(node)
 		(node.getAttribute('href') != null && !node.getAttribute('href').startsWith('#'))))
 	{
 		node.remove();
+	}
+	else if (node.nodeName.toLowerCase() == 'style')
+	{
+		if (!Graph.isStyleAllowed(node.textContent))
+		{
+			node.remove();
+		}
+	}
+});
+
+// Disallows external URLs in style attributes
+DOMPurify.addHook('uponSanitizeAttribute', function(node, data)
+{
+	if (data.attrName == 'style')
+	{
+		if (!Graph.isStyleAllowed(data.attrValue))
+		{
+			data.keepAttr = false; // remove entire style attribute
+		}
 	}
 });
 
