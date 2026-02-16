@@ -15694,8 +15694,17 @@ if (typeof mxVertexHandler !== 'undefined')
 					this.constraintHandler.currentConstraint != null &&
 					this.constraintHandler.currentFocus != null)
 				{
-					var pt = this.constraintHandler.currentConstraint.point;
-					this.hint.innerHTML = '[' + Math.round(pt.x * 100) + '%, '+ Math.round(pt.y * 100) + '%]';
+					var cpt = this.graph.getConnectionPoint(
+						this.constraintHandler.currentFocus,
+						this.constraintHandler.currentConstraint);
+					
+					if (cpt != null)
+					{
+						var cx = this.roundLength(cpt.x / s - t.x);
+						var cy = this.roundLength(cpt.y / s - t.y);
+						this.hint.innerHTML = formatHintText(cx, unit) + ', ' +
+							formatHintText(cy, unit);
+					}
 				}
 				else if (this.marker.hasValidState())
 				{
