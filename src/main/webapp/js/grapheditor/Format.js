@@ -2872,6 +2872,84 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 	this.addKeyHandler(xt, listener);
 	this.addKeyHandler(yt, listener);
 
+	var getAbsoluteEndpoint = function(points, source)
+	{
+		if (points == null || points.length == 0)
+		{
+			return null;
+		}
+
+		var idx = (source) ? 0 : points.length - 1;
+		return points[idx];
+	};
+
+	var getEndpointForDisplay = function(cell, geo, points, source)
+	{
+		var terminal = graph.model.getTerminal(cell, source);
+		var endpoint = (source) ? ((geo != null) ? geo.sourcePoint : null) :
+			((geo != null) ? geo.targetPoint : null);
+		
+		if (terminal == null)
+		{
+			return endpoint;
+		}
+		
+		return getAbsoluteEndpoint(points, source);
+	};
+
+	var updateEndpointDisplay = mxUtils.bind(this, function(cell, geo, points, source, panelDiv, xInput, yInput)
+	{
+		var pt = getEndpointForDisplay(cell, geo, points, source);
+		
+		if (pt != null)
+		{
+			panelDiv.style.display = '';
+			xInput.value = this.inUnit(pt.x) + ' ' + this.getUnit();
+			yInput.value = this.inUnit(pt.y) + ' ' + this.getUnit();
+		}
+		else
+		{
+			panelDiv.style.display = 'none';
+		}
+	});
+
+	var applyEndpointUpdate = function(geo, value, source, isX, otherInput)
+	{
+		var cell = ui.getSelectionState().cells[0];
+		var terminal = graph.model.getTerminal(cell, source);
+		
+		if (terminal != null)
+		{
+			var state = graph.view.getState(cell);
+			var points = (state != null) ? state.absolutePoints : null;
+			var terminalState = graph.view.getState(terminal);
+			var fallback = getAbsoluteEndpoint(points, source);
+			var primary = panel.fromUnit(value);
+			var other = panel.fromUnit(parseFloat(otherInput.value));
+			other = (isNaN(other) && fallback != null) ? ((isX) ? fallback.y : fallback.x) : other;
+			
+			if (terminalState != null && !isNaN(other))
+			{
+				var c = graph.getOutlineConstraint(new mxPoint((isX) ? primary : other,
+					(isX) ? other : primary), terminalState);
+				
+				if (c != null)
+				{
+					graph.setConnectionConstraint(cell, terminal, source, c);
+				}
+			}
+		}
+		else
+		{
+			var endpoint = (source) ? geo.sourcePoint : geo.targetPoint;
+			
+			if (endpoint != null)
+			{
+				endpoint[(isX) ? 'x' : 'y'] = panel.fromUnit(value);
+			}
+		}
+	};
+
 	var listener = mxUtils.bind(this, function(sender, evt, force)
 	{
 		rect = ui.getSelectionState();
@@ -2898,45 +2976,9 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 			var geo = graph.model.getGeometry(cell);
 			var state = graph.view.getState(cell);
 			var points = (state != null) ? state.absolutePoints : null;
-			var source = graph.model.getTerminal(cell, true);
-			var target = graph.model.getTerminal(cell, false);
-			
-			if (geo != null && geo.sourcePoint != null &&
-				source == null)
-			{
-				divs.style.display = '';
-				xs.value = this.inUnit(geo.sourcePoint.x) + ' ' + this.getUnit();
-				ys.value = this.inUnit(geo.sourcePoint.y) + ' ' + this.getUnit();
-			}
-			else if (source != null && points != null && points.length > 0 && points[0] != null)
-			{
-				divs.style.display = '';
-				xs.value = this.inUnit(points[0].x) + ' ' + this.getUnit();
-				ys.value = this.inUnit(points[0].y) + ' ' + this.getUnit();
-			}
-			else
-			{
-				divs.style.display = 'none';
-			}
-			
-			if (geo != null && geo.targetPoint != null &&
-				target == null)
-			{
-				divt.style.display = '';
-				xt.value = this.inUnit(geo.targetPoint.x) + ' ' + this.getUnit();
-				yt.value = this.inUnit(geo.targetPoint.y) + ' ' + this.getUnit();
-			}
-			else if (target != null && points != null && points.length > 0 &&
-				points[points.length - 1] != null)
-			{
-				divt.style.display = '';
-				xt.value = this.inUnit(points[points.length - 1].x) + ' ' + this.getUnit();
-				yt.value = this.inUnit(points[points.length - 1].y) + ' ' + this.getUnit();
-			}
-			else
-			{
-				divt.style.display = 'none';
-			}
+
+			updateEndpointDisplay(cell, geo, points, true, divs, xs, ys);
+			updateEndpointDisplay(cell, geo, points, false, divt, xt, yt);
 		}
 		else
 		{
@@ -2947,120 +2989,22 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 
 	xsUpdate = this.addEdgeGeometryHandler(xs, function(geo, value)
 	{
-		var cell = ui.getSelectionState().cells[0];
-		var source = graph.model.getTerminal(cell, true);
-		
-		if (source != null)
-		{
-			var state = graph.view.getState(cell);
-			var sourceState = graph.view.getState(source);
-			var points = (state != null) ? state.absolutePoints : null;
-			var y = panel.fromUnit(parseFloat(ys.value));
-			y = (isNaN(y) && points != null && points.length > 0 && points[0] != null) ? points[0].y : y;
-			
-			if (sourceState != null && !isNaN(y))
-			{
-				var c = graph.getOutlineConstraint(new mxPoint(panel.fromUnit(value), y), sourceState);
-				
-				if (c != null)
-				{
-					graph.setConnectionConstraint(cell, source, true, c);
-				}
-			}
-		}
-		else if (geo.sourcePoint != null)
-		{
-			geo.sourcePoint.x = panel.fromUnit(value);
-		}
+		applyEndpointUpdate(geo, value, true, true, ys);
 	});
 
 	ysUpdate = this.addEdgeGeometryHandler(ys, function(geo, value)
 	{
-		var cell = ui.getSelectionState().cells[0];
-		var source = graph.model.getTerminal(cell, true);
-		
-		if (source != null)
-		{
-			var state = graph.view.getState(cell);
-			var sourceState = graph.view.getState(source);
-			var points = (state != null) ? state.absolutePoints : null;
-			var x = panel.fromUnit(parseFloat(xs.value));
-			x = (isNaN(x) && points != null && points.length > 0 && points[0] != null) ? points[0].x : x;
-			
-			if (sourceState != null && !isNaN(x))
-			{
-				var c = graph.getOutlineConstraint(new mxPoint(x, panel.fromUnit(value)), sourceState);
-				
-				if (c != null)
-				{
-					graph.setConnectionConstraint(cell, source, true, c);
-				}
-			}
-		}
-		else if (geo.sourcePoint != null)
-		{
-			geo.sourcePoint.y = panel.fromUnit(value);
-		}
+		applyEndpointUpdate(geo, value, true, false, xs);
 	});
 
 	xtUpdate = this.addEdgeGeometryHandler(xt, function(geo, value)
 	{
-		var cell = ui.getSelectionState().cells[0];
-		var target = graph.model.getTerminal(cell, false);
-		
-		if (target != null)
-		{
-			var state = graph.view.getState(cell);
-			var targetState = graph.view.getState(target);
-			var points = (state != null) ? state.absolutePoints : null;
-			var y = panel.fromUnit(parseFloat(yt.value));
-			y = (isNaN(y) && points != null && points.length > 0 &&
-				points[points.length - 1] != null) ? points[points.length - 1].y : y;
-			
-			if (targetState != null && !isNaN(y))
-			{
-				var c = graph.getOutlineConstraint(new mxPoint(panel.fromUnit(value), y), targetState);
-				
-				if (c != null)
-				{
-					graph.setConnectionConstraint(cell, target, false, c);
-				}
-			}
-		}
-		else if (geo.targetPoint != null)
-		{
-			geo.targetPoint.x = panel.fromUnit(value);
-		}
+		applyEndpointUpdate(geo, value, false, true, yt);
 	});
 
 	ytUpdate = this.addEdgeGeometryHandler(yt, function(geo, value)
 	{
-		var cell = ui.getSelectionState().cells[0];
-		var target = graph.model.getTerminal(cell, false);
-		
-		if (target != null)
-		{
-			var state = graph.view.getState(cell);
-			var targetState = graph.view.getState(target);
-			var points = (state != null) ? state.absolutePoints : null;
-			var x = panel.fromUnit(parseFloat(xt.value));
-			x = (isNaN(x) && points != null && points.length > 0 &&
-				points[points.length - 1] != null) ? points[points.length - 1].x : x;
-			
-			if (targetState != null && !isNaN(x))
-			{
-				var c = graph.getOutlineConstraint(new mxPoint(x, panel.fromUnit(value)), targetState);
-				
-				if (c != null)
-				{
-					graph.setConnectionConstraint(cell, target, false, c);
-				}
-			}
-		}
-		else if (geo.targetPoint != null)
-		{
-			geo.targetPoint.y = panel.fromUnit(value);
-		}
+		applyEndpointUpdate(geo, value, false, false, xt);
 	});
 
 	graph.getModel().addListener(mxEvent.CHANGE, listener);
