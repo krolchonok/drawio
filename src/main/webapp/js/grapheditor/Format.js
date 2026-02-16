@@ -2896,12 +2896,23 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 		if (rect.cells.length == 1 && graph.model.isEdge(cell))
 		{
 			var geo = graph.model.getGeometry(cell);
+			var state = graph.view.getState(cell);
+			var points = (state != null) ? state.absolutePoints : null;
+			var source = graph.model.getTerminal(cell, true);
+			var target = graph.model.getTerminal(cell, false);
 			
 			if (geo != null && geo.sourcePoint != null &&
-				graph.model.getTerminal(cell, true) == null)
+				source == null)
 			{
+				divs.style.display = '';
 				xs.value = this.inUnit(geo.sourcePoint.x) + ' ' + this.getUnit();
 				ys.value = this.inUnit(geo.sourcePoint.y) + ' ' + this.getUnit();
+			}
+			else if (source != null && points != null && points.length > 0 && points[0] != null)
+			{
+				divs.style.display = '';
+				xs.value = this.inUnit(points[0].x) + ' ' + this.getUnit();
+				ys.value = this.inUnit(points[0].y) + ' ' + this.getUnit();
 			}
 			else
 			{
@@ -2909,10 +2920,18 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 			}
 			
 			if (geo != null && geo.targetPoint != null &&
-				graph.model.getTerminal(cell, false) == null)
+				target == null)
 			{
+				divt.style.display = '';
 				xt.value = this.inUnit(geo.targetPoint.x) + ' ' + this.getUnit();
 				yt.value = this.inUnit(geo.targetPoint.y) + ' ' + this.getUnit();
+			}
+			else if (target != null && points != null && points.length > 0 &&
+				points[points.length - 1] != null)
+			{
+				divt.style.display = '';
+				xt.value = this.inUnit(points[points.length - 1].x) + ' ' + this.getUnit();
+				yt.value = this.inUnit(points[points.length - 1].y) + ' ' + this.getUnit();
 			}
 			else
 			{
@@ -2928,7 +2947,28 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 
 	xsUpdate = this.addEdgeGeometryHandler(xs, function(geo, value)
 	{
-		if (geo.sourcePoint != null)
+		var cell = ui.getSelectionState().cells[0];
+		var source = graph.model.getTerminal(cell, true);
+		
+		if (source != null)
+		{
+			var state = graph.view.getState(cell);
+			var sourceState = graph.view.getState(source);
+			var points = (state != null) ? state.absolutePoints : null;
+			var y = panel.fromUnit(parseFloat(ys.value));
+			y = (isNaN(y) && points != null && points.length > 0 && points[0] != null) ? points[0].y : y;
+			
+			if (sourceState != null && !isNaN(y))
+			{
+				var c = graph.getOutlineConstraint(new mxPoint(panel.fromUnit(value), y), sourceState);
+				
+				if (c != null)
+				{
+					graph.setConnectionConstraint(cell, source, true, c);
+				}
+			}
+		}
+		else if (geo.sourcePoint != null)
 		{
 			geo.sourcePoint.x = panel.fromUnit(value);
 		}
@@ -2936,7 +2976,28 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 
 	ysUpdate = this.addEdgeGeometryHandler(ys, function(geo, value)
 	{
-		if (geo.sourcePoint != null)
+		var cell = ui.getSelectionState().cells[0];
+		var source = graph.model.getTerminal(cell, true);
+		
+		if (source != null)
+		{
+			var state = graph.view.getState(cell);
+			var sourceState = graph.view.getState(source);
+			var points = (state != null) ? state.absolutePoints : null;
+			var x = panel.fromUnit(parseFloat(xs.value));
+			x = (isNaN(x) && points != null && points.length > 0 && points[0] != null) ? points[0].x : x;
+			
+			if (sourceState != null && !isNaN(x))
+			{
+				var c = graph.getOutlineConstraint(new mxPoint(x, panel.fromUnit(value)), sourceState);
+				
+				if (c != null)
+				{
+					graph.setConnectionConstraint(cell, source, true, c);
+				}
+			}
+		}
+		else if (geo.sourcePoint != null)
 		{
 			geo.sourcePoint.y = panel.fromUnit(value);
 		}
@@ -2944,7 +3005,29 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 
 	xtUpdate = this.addEdgeGeometryHandler(xt, function(geo, value)
 	{
-		if (geo.targetPoint != null)
+		var cell = ui.getSelectionState().cells[0];
+		var target = graph.model.getTerminal(cell, false);
+		
+		if (target != null)
+		{
+			var state = graph.view.getState(cell);
+			var targetState = graph.view.getState(target);
+			var points = (state != null) ? state.absolutePoints : null;
+			var y = panel.fromUnit(parseFloat(yt.value));
+			y = (isNaN(y) && points != null && points.length > 0 &&
+				points[points.length - 1] != null) ? points[points.length - 1].y : y;
+			
+			if (targetState != null && !isNaN(y))
+			{
+				var c = graph.getOutlineConstraint(new mxPoint(panel.fromUnit(value), y), targetState);
+				
+				if (c != null)
+				{
+					graph.setConnectionConstraint(cell, target, false, c);
+				}
+			}
+		}
+		else if (geo.targetPoint != null)
 		{
 			geo.targetPoint.x = panel.fromUnit(value);
 		}
@@ -2952,7 +3035,29 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 
 	ytUpdate = this.addEdgeGeometryHandler(yt, function(geo, value)
 	{
-		if (geo.targetPoint != null)
+		var cell = ui.getSelectionState().cells[0];
+		var target = graph.model.getTerminal(cell, false);
+		
+		if (target != null)
+		{
+			var state = graph.view.getState(cell);
+			var targetState = graph.view.getState(target);
+			var points = (state != null) ? state.absolutePoints : null;
+			var x = panel.fromUnit(parseFloat(xt.value));
+			x = (isNaN(x) && points != null && points.length > 0 &&
+				points[points.length - 1] != null) ? points[points.length - 1].x : x;
+			
+			if (targetState != null && !isNaN(x))
+			{
+				var c = graph.getOutlineConstraint(new mxPoint(x, panel.fromUnit(value)), targetState);
+				
+				if (c != null)
+				{
+					graph.setConnectionConstraint(cell, target, false, c);
+				}
+			}
+		}
+		else if (geo.targetPoint != null)
 		{
 			geo.targetPoint.y = panel.fromUnit(value);
 		}
@@ -5964,7 +6069,7 @@ StyleFormatPanel.prototype.addStroke = function(container)
 			endSize.value = (isNaN(tmp)) ? '' : this.inUnit(tmp) + ' ' + this.getUnit();
 		}
 		
-		if (force || document.activeElement != startSpacing)
+		if (force || document.activeElement != endSpacing)
 		{
 			var tmp = parseInt(mxUtils.getValue(ss.style, mxConstants.STYLE_TARGET_PERIMETER_SPACING, 0));
 			endSpacing.value = (isNaN(tmp)) ? '' : this.inUnit(tmp) + ' ' + this.getUnit();

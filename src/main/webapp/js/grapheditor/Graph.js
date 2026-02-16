@@ -9304,7 +9304,90 @@ TableLayout.prototype.execute = function(parent)
 		}
 		else
 		{
-			return mxGraphViewGetFixedTerminalPoint.apply(this, arguments);
+			var pt = mxGraphViewGetFixedTerminalPoint.apply(this, arguments);
+			
+			// Applies perimeter spacing for fixed connection constraints as well.
+			if (pt != null && terminal != null && constraint != null)
+			{
+				var border = parseFloat(edge.style[mxConstants.STYLE_PERIMETER_SPACING] || 0);
+				border += parseFloat(edge.style[(source) ?
+					mxConstants.STYLE_SOURCE_PERIMETER_SPACING :
+					mxConstants.STYLE_TARGET_PERIMETER_SPACING] || 0);
+				
+				if (border != 0)
+				{
+					var nx = 0;
+					var ny = 0;
+					
+					// For fixed outline constraints, move along the side normal
+					// (not radially from center), so spacing is "away from anchor side".
+					if (constraint.point != null)
+					{
+						var x = parseFloat(constraint.point.x);
+						var y = parseFloat(constraint.point.y);
+						
+						if (!isNaN(x) && !isNaN(y))
+						{
+							var dl = Math.abs(x);
+							var dr = Math.abs(1 - x);
+							var dt = Math.abs(y);
+							var db = Math.abs(1 - y);
+							var min = Math.min(dl, dr, dt, db);
+							
+							if (min == dl)
+							{
+								nx = -1;
+							}
+							else if (min == dr)
+							{
+								nx = 1;
+							}
+							else if (min == dt)
+							{
+								ny = -1;
+							}
+							else
+							{
+								ny = 1;
+							}
+							
+							var alpha = mxUtils.toRadians((terminal.shape != null) ?
+								terminal.shape.getShapeRotation() :
+								parseFloat(terminal.style[mxConstants.STYLE_ROTATION] || '0'));
+							
+							if (alpha != 0)
+							{
+								var cos = Math.cos(alpha);
+								var sin = Math.sin(alpha);
+								var tx = nx * cos - ny * sin;
+								ny = nx * sin + ny * cos;
+								nx = tx;
+							}
+						}
+					}
+					
+					// Fallback for non-outline/fuzzy constraints
+					if (nx == 0 && ny == 0)
+					{
+						var dx = pt.x - terminal.getCenterX();
+						var dy = pt.y - terminal.getCenterY();
+						var dist = Math.sqrt(dx * dx + dy * dy);
+						
+						if (dist > 0)
+						{
+							nx = dx / dist;
+							ny = dy / dist;
+						}
+					}
+					
+					if (nx != 0 || ny != 0)
+					{
+						pt = new mxPoint(pt.x + border * nx, pt.y + border * ny);
+					}
+				}
+			}
+			
+			return pt;
 		}
 	};
 
