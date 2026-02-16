@@ -2789,6 +2789,7 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 	div.appendChild(span);
 
 	var widthUpdate, xtUpdate, ytUpdate, xsUpdate, ysUpdate;
+	var sdxUpdate, sdyUpdate, edxUpdate, edyUpdate;
 	var width = this.addUnitInput(div, 'pt', 12, 44, function()
 	{
 		widthUpdate.apply(this, arguments);
@@ -2872,6 +2873,58 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 	this.addKeyHandler(xt, listener);
 	this.addKeyHandler(yt, listener);
 
+	var divso = this.createPanel();
+	divso.style.paddingBottom = '30px';
+
+	span = document.createElement('div');
+	span.style.position = 'absolute';
+	span.style.width = '70px';
+	span.style.marginTop = '4px';
+	mxUtils.write(span, mxResources.get('linestart') + ' %');
+	divso.appendChild(span);
+
+	var sdx = this.addUnitInput(divso, this.getUnit(), 87, 52, function()
+	{
+		sdxUpdate.apply(this, arguments);
+	}, this.getUnitStep(), null, null, this.isFloatUnit());
+	var sdy = this.addUnitInput(divso, this.getUnit(), 16, 52, function()
+	{
+		sdyUpdate.apply(this, arguments);
+	}, this.getUnitStep(), null, null, this.isFloatUnit());
+
+	mxUtils.br(divso);
+	this.addLabel(divso, 'x', 87, 64);
+	this.addLabel(divso, 'y', 16, 64);
+	container.appendChild(divso);
+	this.addKeyHandler(sdx, listener);
+	this.addKeyHandler(sdy, listener);
+
+	var diveo = this.createPanel();
+	diveo.style.paddingBottom = '30px';
+
+	span = document.createElement('div');
+	span.style.position = 'absolute';
+	span.style.width = '70px';
+	span.style.marginTop = '4px';
+	mxUtils.write(span, mxResources.get('lineend') + ' %');
+	diveo.appendChild(span);
+
+	var edx = this.addUnitInput(diveo, this.getUnit(), 87, 52, function()
+	{
+		edxUpdate.apply(this, arguments);
+	}, this.getUnitStep(), null, null, this.isFloatUnit());
+	var edy = this.addUnitInput(diveo, this.getUnit(), 16, 52, function()
+	{
+		edyUpdate.apply(this, arguments);
+	}, this.getUnitStep(), null, null, this.isFloatUnit());
+
+	mxUtils.br(diveo);
+	this.addLabel(diveo, 'x', 87, 64);
+	this.addLabel(diveo, 'y', 16, 64);
+	container.appendChild(diveo);
+	this.addKeyHandler(edx, listener);
+	this.addKeyHandler(edy, listener);
+
 	var getAbsoluteEndpoint = function(points, source)
 	{
 		if (points == null || points.length == 0)
@@ -2950,6 +3003,54 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 		}
 	};
 
+	var installConstraintPercentHandler = function(input, key)
+	{
+		var initialValue = null;
+
+		var update = function(evt)
+		{
+			if (input.value != '')
+			{
+				var value = parseFloat(input.value);
+				value = Math.min(100, Math.max(0, (isNaN(value)) ? 0 : value));
+				var normalized = Math.round((value / 100) * 1000) / 1000;
+
+				if (normalized != mxUtils.getValue(ui.getSelectionState().style, key, null))
+				{
+					var cells = graph.getEditableCells(ui.getSelectionState().cells);
+					var edges = [];
+
+					for (var i = 0; i < cells.length; i++)
+					{
+						if (graph.getModel().isEdge(cells[i]))
+						{
+							edges.push(cells[i]);
+						}
+					}
+
+					if (edges.length > 0)
+					{
+						graph.setCellStyles(key, normalized, edges);
+					}
+				}
+
+				initialValue = value;
+				input.value = value + ' %';
+			}
+
+			mxEvent.consume(evt);
+		};
+
+		mxEvent.addListener(input, 'blur', update);
+		mxEvent.addListener(input, 'change', update);
+		mxEvent.addListener(input, 'focus', function()
+		{
+			initialValue = input.value;
+		});
+
+		return update;
+	};
+
 	var listener = mxUtils.bind(this, function(sender, evt, force)
 	{
 		rect = ui.getSelectionState();
@@ -2971,7 +3072,11 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 			div.style.display = 'none';
 		}
 
-		if (rect.cells.length == 1 && graph.model.isEdge(cell))
+		var singleEdge = (rect.cells.length == 1 && graph.model.isEdge(cell));
+		var multiEdges = (rect.edges != null && rect.edges.length > 1 &&
+			rect.edges.length == rect.cells.length);
+
+		if (singleEdge)
 		{
 			var geo = graph.model.getGeometry(cell);
 			var state = graph.view.getState(cell);
@@ -2984,6 +3089,66 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 		{
 			divs.style.display = 'none';
 			divt.style.display = 'none';
+		}
+
+		if (singleEdge || multiEdges)
+		{
+			divso.style.display = '';
+			diveo.style.display = '';
+
+			if (singleEdge)
+			{
+				if (force || document.activeElement != sdx)
+				{
+					var tmp = parseFloat(mxUtils.getValue(rect.style, mxConstants.STYLE_EXIT_X, null));
+					sdx.value = (isNaN(tmp)) ? '' : Math.round(tmp * 100) + ' %';
+				}
+
+				if (force || document.activeElement != sdy)
+				{
+					var tmp = parseFloat(mxUtils.getValue(rect.style, mxConstants.STYLE_EXIT_Y, null));
+					sdy.value = (isNaN(tmp)) ? '' : Math.round(tmp * 100) + ' %';
+				}
+
+				if (force || document.activeElement != edx)
+				{
+					var tmp = parseFloat(mxUtils.getValue(rect.style, mxConstants.STYLE_ENTRY_X, null));
+					edx.value = (isNaN(tmp)) ? '' : Math.round(tmp * 100) + ' %';
+				}
+
+				if (force || document.activeElement != edy)
+				{
+					var tmp = parseFloat(mxUtils.getValue(rect.style, mxConstants.STYLE_ENTRY_Y, null));
+					edy.value = (isNaN(tmp)) ? '' : Math.round(tmp * 100) + ' %';
+				}
+			}
+			else
+			{
+				if (force || document.activeElement != sdx)
+				{
+					sdx.value = '';
+				}
+
+				if (force || document.activeElement != sdy)
+				{
+					sdy.value = '';
+				}
+
+				if (force || document.activeElement != edx)
+				{
+					edx.value = '';
+				}
+
+				if (force || document.activeElement != edy)
+				{
+					edy.value = '';
+				}
+			}
+		}
+		else
+		{
+			divso.style.display = 'none';
+			diveo.style.display = 'none';
 		}
 	});
 
@@ -3006,6 +3171,11 @@ ArrangePanel.prototype.addEdgeGeometry = function(container)
 	{
 		applyEndpointUpdate(geo, value, false, false, xt);
 	});
+
+	sdxUpdate = installConstraintPercentHandler(sdx, mxConstants.STYLE_EXIT_X);
+	sdyUpdate = installConstraintPercentHandler(sdy, mxConstants.STYLE_EXIT_Y);
+	edxUpdate = installConstraintPercentHandler(edx, mxConstants.STYLE_ENTRY_X);
+	edyUpdate = installConstraintPercentHandler(edy, mxConstants.STYLE_ENTRY_Y);
 
 	graph.getModel().addListener(mxEvent.CHANGE, listener);
 	this.listeners.push({destroy: function() { graph.getModel().removeListener(listener); }});
@@ -5857,6 +6027,46 @@ StyleFormatPanel.prototype.addStroke = function(container)
 	mxUtils.br(arrowPanel);
 	this.addLabel(arrowPanel, mxResources.get('linestart'), 82, 62).style.fontSize = '10px';
 	this.addLabel(arrowPanel, mxResources.get('lineend'), 16, 62).style.fontSize = '10px';
+	mxUtils.br(arrowPanel);
+
+	var snapBtn = mxUtils.button(mxResources.get('reset'), mxUtils.bind(this, function()
+	{
+		var cells = graph.getEditableCells(ui.getSelectionState().cells);
+		var edges = [];
+		
+		for (var i = 0; i < cells.length; i++)
+		{
+			if (graph.getModel().isEdge(cells[i]))
+			{
+				edges.push(cells[i]);
+			}
+		}
+		
+		if (edges.length > 0)
+		{
+			graph.getModel().beginUpdate();
+			try
+			{
+				graph.setCellStyles(mxConstants.STYLE_SOURCE_PERIMETER_SPACING, 0, edges);
+				graph.setCellStyles(mxConstants.STYLE_TARGET_PERIMETER_SPACING, 0, edges);
+				graph.setCellStyles(mxConstants.STYLE_EXIT_DX, null, edges);
+				graph.setCellStyles(mxConstants.STYLE_EXIT_DY, null, edges);
+				graph.setCellStyles(mxConstants.STYLE_ENTRY_DX, null, edges);
+				graph.setCellStyles(mxConstants.STYLE_ENTRY_DY, null, edges);
+			}
+			finally
+			{
+				graph.getModel().endUpdate();
+			}
+		}
+		
+		listener(null, null, true);
+	}));
+	snapBtn.className = 'geBtn gePrimaryBtn';
+	snapBtn.style.margin = '6px 0 0 0';
+	snapBtn.style.width = '100%';
+	snapBtn.setAttribute('title', mxResources.get('reset'));
+	arrowPanel.appendChild(snapBtn);
 	mxUtils.br(arrowPanel);
 	
 	var perimeterPanel = colorPanel.cloneNode(false);
